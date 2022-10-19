@@ -37,6 +37,7 @@ wget -O ffmpeg-5.1.tar.bz2 https://ffmpeg.org/releases/ffmpeg-5.1.tar.bz2 && \
   cd ffmpeg-5.1 && \
   PKG_CONFIG_PATH="../ffmpeg/lib/pkgconfig" ./configure \
     --prefix="../ffmpeg" \
+    --pkg-config-flags="--static" \
     --extra-libs="-lpthread -lm" \
     --bindir="../ffmpeg" \
     --enable-gpl \

@@ -1,4 +1,3 @@
-# Project Name
 set( PROJECT_NAME video_test )
 project(${PROJECT_NAME})
 
@@ -11,12 +10,20 @@ set( DEFINE ${DEFINE} -DUNIX )
 add_definitions( ${DEFINE} )
 
 # include path 
-set( INCLUDE_PATH ${CMAKE_SOURCE_DIR}/ffmpeg/include )
-include_directories( ${INCLUDE_PATH} )
+#set( INCLUDE_PATH ${CMAKE_SOURCE_DIR}/ffmpeg/include )
+#include_directories( ${INCLUDE_PATH} )
 
 # library path
-set( LIB_PATH ${CMAKE_SOURCE_DIR}/ffmpeg/lib/ )
-link_directories( ${LIB_PATH} )
+#set( LIB_PATH ${CMAKE_SOURCE_DIR}/ffmpeg/lib/ )
+#link_directories( ${LIB_PATH} )
+
+set(ENV{PKG_CONFIG_PATH} ./ffmpeg/lib/pkgconfig)
+find_package(PkgConfig)
+pkg_search_module(AVFORMAT REQUIRED libavformat)
+pkg_search_module(AVUTIL REQUIRED libavutil)
+
+include_directories(${AVFORMAT_INCLUDE_DIRS} ${AVUTIL_INCLUDE_DIRS})
+link_directories(${AVFORMAT_LIBRARY_DIRS} ${AVUTIL_LIBRARY_DIRS})
 
 # source 
 set( SOURCE main.c 
@@ -26,4 +33,4 @@ set( SOURCE main.c
 set( HEAD media.h )
 
 add_executable( ${PROJECT_NAME} ${SOURCE} ${HEAD} )
-target_link_libraries( ${PROJECT_NAME} pthread avcodec avdevice avfilter postproc swresample swscale avformat avutil )
+target_link_libraries( ${PROJECT_NAME} ${AVFORMAT_LIBRARIES} ${AVUTIL_LIBRARIES} )

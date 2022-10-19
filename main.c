@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "demuxing_decoding.h"
+#include "media.h"
 
 int main(int argc, char *argv[])
 {
