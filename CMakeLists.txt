@@ -19,10 +19,11 @@ set( LIB_PATH ${CMAKE_SOURCE_DIR}/ffmpeg/lib/ )
 link_directories( ${LIB_PATH} )
 
 # source 
-set( SOURCE main.c )
+set( SOURCE main.c 
+			media.c )
 
 # head
-set( HEAD )
+set( HEAD media.h )
 
 add_executable( ${PROJECT_NAME} ${SOURCE} ${HEAD} )
-target_link_libraries( ${PROJECT_NAME} )
+target_link_libraries( ${PROJECT_NAME} pthread avcodec avdevice avfilter postproc swresample swscale avformat avutil )
