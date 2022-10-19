@@ -1,4 +1,4 @@
-mkdir ./ffmpeg_bin
+mkdir ./ffmpeg
 
 sudo apt install \
   autoconf \
@@ -35,10 +35,10 @@ sudo apt install \
 wget -O ffmpeg-5.1.tar.bz2 https://ffmpeg.org/releases/ffmpeg-5.1.tar.bz2 && \
   tar xjvf ffmpeg-5.1.tar.bz2 && \
   cd ffmpeg-5.1 && \
-  PKG_CONFIG_PATH="../ffmpeg_bin/lib/pkgconfig" ./configure \
-    --prefix="../ffmpeg_bin" \
+  PKG_CONFIG_PATH="../ffmpeg/lib/pkgconfig" ./configure \
+    --prefix="../ffmpeg" \
     --extra-libs="-lpthread -lm" \
-    --bindir="../ffmpeg_bin" \
+    --bindir="../ffmpeg" \
     --enable-gpl \
     --enable-libass \
     --enable-libfdk-aac \
