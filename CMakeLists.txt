@@ -21,6 +21,7 @@ set(ENV{PKG_CONFIG_PATH} ./ffmpeg/lib/pkgconfig)
 find_package(PkgConfig)
 pkg_search_module(AVFORMAT REQUIRED libavformat)
 pkg_search_module(AVUTIL REQUIRED libavutil)
+pkg_search_module(AVCODEC REQUIRED libavcodec)
 
 include_directories(${AVFORMAT_INCLUDE_DIRS} ${AVUTIL_INCLUDE_DIRS})
 link_directories(${AVFORMAT_LIBRARY_DIRS} ${AVUTIL_LIBRARY_DIRS})
@@ -33,4 +34,4 @@ set( SOURCE main.c
 set( HEAD media.h )
 
 add_executable( ${PROJECT_NAME} ${SOURCE} ${HEAD} )
-target_link_libraries( ${PROJECT_NAME} ${AVFORMAT_LIBRARIES} ${AVUTIL_LIBRARIES} )
+target_link_libraries( ${PROJECT_NAME} ${AVFORMAT_LIBRARIES} ${AVUTIL_LIBRARIES} ${AVCODEC} )
