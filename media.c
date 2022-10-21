@@ -17,154 +17,66 @@ static int audio_frame_count = 0;
 
 static int output_audio_frame(AVFrame *frame)
 {
-#if 0
-    size_t unpadded_linesize = frame->nb_samples * av_get_bytes_per_sample(frame->format);
-    printf("audio_frame n:%d nb_samples:%d pts:%s\n",
-           audio_frame_count++, frame->nb_samples,
-           av_ts2timestr(frame->pts, &audio_dec_ctx->time_base));
 
-    /* Write the raw audio data samples of the first plane. This works
-     * fine for packed formats (e.g. AV_SAMPLE_FMT_S16). However,
-     * most audio decoders output planar audio, which uses a separate
-     * plane of audio samples for each channel (e.g. AV_SAMPLE_FMT_S16P).
-     * In other words, this code will write only the first audio channel
-     * in these cases.
-     * You should use libswresample or libavfilter to convert the frame
-     * to packed data. */
-    fwrite(frame->extended_data[0], 1, unpadded_linesize, audio_dst_file);
-#endif
+    size_t unpadded_linesize = frame->nb_samples * av_get_bytes_per_sample(frame->format);
+    printf( "audio_frame n:%d nb_samples:%d \n", audio_frame_count++, frame->nb_samples );
+
+    //fwrite(frame->extended_data[0], 1, unpadded_linesize, audio_dst_file);
+
     return 0;
 
 }
 
-static int decode_packet(AVCodecContext *dec, const AVPacket *pkt)
-{
-#if 0
+
+
+
+
+
+
+int     audio_decode( DecodeData *dec_data )
+{  
     int ret = 0;
 
     // submit the packet to the decoder
-    ret = avcodec_send_packet(dec, pkt);
-    if (ret < 0) 
+    ret = avcodec_send_packet( dec_data->audio_dec_ctx, dec_data->pkt );
+
+    if( ret < 0 )
     {
-        fprintf(stderr, "Error submitting a packet for decoding (%s)\n", av_err2str(ret));
+        fprintf( stderr, "Error submitting a packet for decoding (%s)\n", av_err2str(ret));
         return ret;
     }
 
     // get all the available frames from the decoder
-    while (ret >= 0) 
+    while( ret >= 0 )
     {
-        ret = avcodec_receive_frame(dec, frame);
+        ret = avcodec_receive_frame( dec_data->audio_dec_ctx, dec_data->frame );
         if (ret < 0) 
         {
-            // those two return values are special and mean there is no output
-            // frame available, but there were no errors during decoding
             if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN))
                 return 0;
-
             fprintf(stderr, "Error during decoding (%s)\n", av_err2str(ret));
             return ret;
         }
 
-        // write the frame data to output file
-        if (dec->codec->type == AVMEDIA_TYPE_VIDEO)
-        {
-            //ret = output_video_frame(frame);
-        }
-        else
-            ret = output_audio_frame(frame);
+        ret =   output_audio_frame( dec_data->frame );
 
-        av_frame_unref(frame);
+        av_frame_unref(dec_data->frame);
         if (ret < 0)
             return ret;
     }
-#endif
-    return 0;
-}
-
-static int open_codec_context(int *stream_idx, AVCodecContext **dec_ctx, AVFormatContext *fmt_ctx, enum AVMediaType type)
-{
-    int ret, stream_index;
-    AVStream *st;
-    const AVCodec *dec = NULL;
-
-    ret = av_find_best_stream(fmt_ctx, type, -1, -1, NULL, 0);
-    if (ret < 0) 
-    {
-        fprintf(stderr, "Could not find %s stream in input file '%s'\n",
-                av_get_media_type_string(type), src_filename);
-        return ret;
-    } 
-    else 
-    {
-        stream_index = ret;
-        st = fmt_ctx->streams[stream_index];
-
-        /* find decoder for the stream */
-        dec = avcodec_find_decoder(st->codecpar->codec_id);
-        if (!dec) 
-        {
-            fprintf(stderr, "Failed to find %s codec\n",
-                    av_get_media_type_string(type));
-            return AVERROR(EINVAL);
-        }
-
-        /* Allocate a codec context for the decoder */
-        *dec_ctx = avcodec_alloc_context3(dec);
-        if (!*dec_ctx) 
-        {
-            fprintf(stderr, "Failed to allocate the %s codec context\n",
-                    av_get_media_type_string(type));
-            return AVERROR(ENOMEM);
-        }
-
-        /* Copy codec parameters from input stream to output codec context */
-        if ((ret = avcodec_parameters_to_context(*dec_ctx, st->codecpar)) < 0) 
-        {
-            fprintf(stderr, "Failed to copy %s codec parameters to decoder context\n",
-                    av_get_media_type_string(type));
-            return ret;
-        }
-
-        /* Init the decoders */
-        if ((ret = avcodec_open2(*dec_ctx, dec, NULL)) < 0) 
-        {
-            fprintf(stderr, "Failed to open %s codec\n",
-                    av_get_media_type_string(type));
-            return ret;
-        }
-        *stream_idx = stream_index;
-    }
 
     return 0;
 }
 
-static int get_format_from_sample_fmt(const char **fmt, enum AVSampleFormat sample_fmt)
-{
-    int i;
-    struct sample_fmt_entry {
-        enum AVSampleFormat sample_fmt; const char *fmt_be, *fmt_le;
-    } sample_fmt_entries[] = {
-        { AV_SAMPLE_FMT_U8,  "u8",    "u8"    },
-        { AV_SAMPLE_FMT_S16, "s16be", "s16le" },
-        { AV_SAMPLE_FMT_S32, "s32be", "s32le" },
-        { AV_SAMPLE_FMT_FLT, "f32be", "f32le" },
-        { AV_SAMPLE_FMT_DBL, "f64be", "f64le" },
-    };
-    *fmt = NULL;
 
-    for (i = 0; i < FF_ARRAY_ELEMS(sample_fmt_entries); i++) {
-        struct sample_fmt_entry *entry = &sample_fmt_entries[i];
-        if (sample_fmt == entry->sample_fmt) {
-            *fmt = AV_NE(entry->fmt_be, entry->fmt_le);
-            return 0;
-        }
-    }
 
-    fprintf(stderr,
-            "sample format %s is not supported as output format\n",
-            av_get_sample_fmt_name(sample_fmt));
-    return -1;
-}
+
+
+
+
+
+
+
 
 
 int open_input( char *filename, DecodeData *dec_data )

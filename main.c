@@ -23,25 +23,22 @@ int main(int argc, char *argv[])
 
 
 
-    while( av_read_frame( dec_data->fmt_ctx, dec_data->pkt ) >= 0 )
+    while( av_read_frame( dec_data.fmt_ctx, dec_data.pkt ) >= 0 )
     {
-        if (pkt->stream_index == video_stream_idx)
-            ret = decode_packet(video_dec_ctx, pkt);
-        else if (pkt->stream_index == audio_stream_idx)
-            ret = decode_packet(audio_dec_ctx, pkt);
-        av_packet_unref(pkt);
+        if ( dec_data.pkt->stream_index == dec_data.audio_index )
+            ret =   audio_decode( &dec_data );
+
+        av_packet_unref( dec_data.pkt );
         if (ret < 0)
             break;
     }
 
-    /* flush the decoders */
-    if (video_dec_ctx)
-        decode_packet(video_dec_ctx, NULL);
-    if (audio_dec_ctx)
-        decode_packet(audio_dec_ctx, NULL);
+    // flush
+    // decode_packet( &dec_data );
 
     printf("Demuxing succeeded.\n");
 
+#if 0
     if (audio_stream) {
         enum AVSampleFormat sfmt = audio_dec_ctx->sample_fmt;
         int n_channels = audio_dec_ctx->ch_layout.nb_channels;
@@ -64,8 +61,10 @@ int main(int argc, char *argv[])
                fmt, n_channels, audio_dec_ctx->sample_rate,
                audio_dst_filename);
     }
+#endif
 
 end:
+#if 0
     avcodec_free_context(&video_dec_ctx);
     avcodec_free_context(&audio_dec_ctx);
     avformat_close_input(&fmt_ctx);
@@ -73,8 +72,9 @@ end:
         fclose(audio_dst_file);
     av_packet_free(&pkt);
     av_frame_free(&frame);
+#endif
 
-    return ret < 0;
+    //return ret < 0;
 
 
 

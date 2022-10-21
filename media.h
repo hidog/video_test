@@ -28,11 +28,13 @@ struct DecodeData_t
 
 
 
+int open_input( char *filename, DecodeData *dec_data );
+int audio_decode( DecodeData *dec_data );
 
 
 int enc_test();
 
-int open_input( char *filename, DecodeData *dec_data );
+
 
 
 #endif
