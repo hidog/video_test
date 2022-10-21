@@ -20,6 +20,7 @@ struct DecodeData_t
     int     audio_index;
     AVFormatContext *fmt_ctx;
     AVCodecContext  *audio_dec_ctx;
+    AVCodecContext  *video_dec_ctx;
     AVStream        *video_stream; 
     AVStream        *audio_stream;
     AVFrame     *frame;
@@ -28,8 +29,25 @@ struct DecodeData_t
 
 
 
+
+struct EncodeData_t
+{
+    AVFormatContext *fmt_ctx;
+    AVCodecContext  *audio_ctx;
+    AVCodecContext *video_ctx;
+    AVStream *audio_stream;
+    AVStream *video_stream;
+} typedef EncodeData;
+
+
+
 int open_input( char *filename, DecodeData *dec_data );
+
 int audio_decode( DecodeData *dec_data );
+
+
+int open_output( char *filename, DecodeData dec_data, EncodeData *enc_data );
+
 
 
 int enc_test();

@@ -10,6 +10,7 @@
 
 int main(int argc, char *argv[])
 {
+
     int     ret;
     DecodeData  dec_data;
 
@@ -20,13 +21,35 @@ int main(int argc, char *argv[])
         return 0;
     }
 
+    EncodeData enc_data;
+    open_output( "D:\\code\\output.mp4", dec_data, &enc_data );
+
 
 
 
     while( av_read_frame( dec_data.fmt_ctx, dec_data.pkt ) >= 0 )
     {
-        if ( dec_data.pkt->stream_index == dec_data.audio_index )
-            ret =   audio_decode( &dec_data );
+        //if ( dec_data.pkt->stream_index == dec_data.audio_index )
+          //  ret =   audio_decode( &dec_data );
+
+
+        if( dec_data.pkt->stream_index == dec_data.audio_index )
+        {
+            av_packet_rescale_ts( dec_data.pkt, enc_data.audio_ctx->time_base, enc_data.audio_stream->time_base);
+            dec_data.pkt->stream_index = enc_data.audio_stream->index;
+        }
+        else
+        {
+            AVRational r;
+            r.den = 1001;
+            r.num = 24000; //{ 1001, 24000 };
+            av_packet_rescale_ts( dec_data.pkt, r, r );
+            dec_data.pkt->stream_index = enc_data.video_stream->index;
+        }
+
+
+        int ret2 = av_interleaved_write_frame( enc_data.fmt_ctx, dec_data.pkt );
+
 
         av_packet_unref( dec_data.pkt );
         if (ret < 0)
@@ -37,6 +60,10 @@ int main(int argc, char *argv[])
     // decode_packet( &dec_data );
 
     printf("Demuxing succeeded.\n");
+
+
+    av_write_trailer( enc_data.fmt_ctx );
+
 
 #if 0
     if (audio_stream) {

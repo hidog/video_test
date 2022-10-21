@@ -47,22 +47,18 @@ int     audio_decode( DecodeData *dec_data )
     }
 
     // get all the available frames from the decoder
-    while( ret >= 0 )
+    if( ret >= 0 )
     {
         ret = avcodec_receive_frame( dec_data->audio_dec_ctx, dec_data->frame );
         if (ret < 0) 
         {
-            if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN))
-                return 0;
-            fprintf(stderr, "Error during decoding (%s)\n", av_err2str(ret));
-            return ret;
+            if ( !(ret == AVERROR_EOF || ret == AVERROR(EAGAIN)) )
+                fprintf( stderr, "error\n");
         }
 
         ret =   output_audio_frame( dec_data->frame );
 
         av_frame_unref(dec_data->frame);
-        if (ret < 0)
-            return ret;
     }
 
     return 0;
@@ -146,6 +142,37 @@ int open_input( char *filename, DecodeData *dec_data )
     {
         printf( "NOTE: this file has no video stream.\n" );
     }
+    else 
+    {
+        video_stream    =   fmt_ctx->streams[video_index];
+        dec =   avcodec_find_decoder( video_stream->codecpar->codec_id );
+        if( NULL == dec )
+        {
+            fprintf( stderr, "find audio codec fail.\n" );
+            return ERROR;
+        }
+
+        video_dec_ctx   =   avcodec_alloc_context3(dec);
+        if( NULL  == video_dec_ctx )
+        {
+            fprintf( stderr, "allocate audio codec ctx fail.\n" );
+            return ERROR;
+        }
+
+        ret =   avcodec_parameters_to_context( video_dec_ctx, video_stream->codecpar);
+        if( ret < 0 )
+        {
+            fprintf( stderr, "copy audio codec parameters to audio decoder ctx fail.\n" );
+            return ERROR;
+        }
+
+        ret =   avcodec_open2( video_dec_ctx, dec, NULL );
+        if( ret < 0 )
+        {
+            fprintf( stderr, "open audio codec fail\n" );
+            return ERROR;
+        }
+    }
 
     av_dump_format( fmt_ctx, 0, filename, 0 );
 
@@ -172,6 +199,7 @@ int open_input( char *filename, DecodeData *dec_data )
     dec_data->video_stream  =   video_stream;
     dec_data->audio_stream  =   audio_stream;
     dec_data->audio_dec_ctx =   audio_dec_ctx;
+    dec_data->video_dec_ctx =   video_dec_ctx;
 
     return SUCCESS;
 }
@@ -214,37 +242,6 @@ int open_input( char *filename, DecodeData *dec_data )
 
 
 
-
-/*
- * Copyright (c) 2003 Fabrice Bellard
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-
-/**
- * @file
- * libavformat API example.
- *
- * Output a media file in any supported libavformat format. The default
- * codecs are used.
- * @example muxing.c
- */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -459,6 +456,9 @@ static AVFrame *alloc_audio_frame(enum AVSampleFormat sample_fmt,
     return frame;
 }
 
+
+
+#if 0
 static void open_audio(AVFormatContext *oc, const AVCodec *codec,
                        OutputStream *ost, AVDictionary *opt_arg)
 {
@@ -522,6 +522,12 @@ static void open_audio(AVFormatContext *oc, const AVCodec *codec,
         exit(1);
     }
 }
+#endif
+
+
+
+
+
 
 /* Prepare a 16 bit dummy audio frame of 'frame_size' samples and
  * 'nb_channels' channels. */
@@ -600,94 +606,9 @@ static int write_audio_frame(AVFormatContext *oc, OutputStream *ost)
 /**************************************************************/
 /* video output */
 
-static AVFrame *alloc_picture(enum AVPixelFormat pix_fmt, int width, int height)
-{
-    AVFrame *picture;
-    int ret;
 
-    picture = av_frame_alloc();
-    if (!picture)
-        return NULL;
 
-    picture->format = pix_fmt;
-    picture->width  = width;
-    picture->height = height;
 
-    /* allocate the buffers for the frame data */
-    ret = av_frame_get_buffer(picture, 0);
-    if (ret < 0) {
-        fprintf(stderr, "Could not allocate frame data.\n");
-        exit(1);
-    }
-
-    return picture;
-}
-
-static void open_video(AVFormatContext *oc, const AVCodec *codec,
-                       OutputStream *ost, AVDictionary *opt_arg)
-{
-    int ret;
-    AVCodecContext *c = ost->enc;
-    AVDictionary *opt = NULL;
-
-    av_dict_copy(&opt, opt_arg, 0);
-
-    /* open the codec */
-    ret = avcodec_open2(c, codec, &opt);
-    av_dict_free(&opt);
-    if (ret < 0) {
-        fprintf(stderr, "Could not open video codec: %s\n", av_err2str(ret));
-        exit(1);
-    }
-
-    /* allocate and init a re-usable frame */
-    ost->frame = alloc_picture(c->pix_fmt, c->width, c->height);
-    if (!ost->frame) {
-        fprintf(stderr, "Could not allocate video frame\n");
-        exit(1);
-    }
-
-    /* If the output format is not YUV420P, then a temporary YUV420P
-     * picture is needed too. It is then converted to the required
-     * output format. */
-    ost->tmp_frame = NULL;
-    if (c->pix_fmt != AV_PIX_FMT_YUV420P) {
-        ost->tmp_frame = alloc_picture(AV_PIX_FMT_YUV420P, c->width, c->height);
-        if (!ost->tmp_frame) {
-            fprintf(stderr, "Could not allocate temporary picture\n");
-            exit(1);
-        }
-    }
-
-    /* copy the stream parameters to the muxer */
-    ret = avcodec_parameters_from_context(ost->st->codecpar, c);
-    if (ret < 0) {
-        fprintf(stderr, "Could not copy the stream parameters\n");
-        exit(1);
-    }
-}
-
-/* Prepare a dummy image. */
-static void fill_yuv_image(AVFrame *pict, int frame_index,
-                           int width, int height)
-{
-    int x, y, i;
-
-    i = frame_index;
-
-    /* Y */
-    for (y = 0; y < height; y++)
-        for (x = 0; x < width; x++)
-            pict->data[0][y * pict->linesize[0] + x] = x + y + i * 3;
-
-    /* Cb and Cr */
-    for (y = 0; y < height / 2; y++) {
-        for (x = 0; x < width / 2; x++) {
-            pict->data[1][y * pict->linesize[1] + x] = 128 + y + i * 2;
-            pict->data[2][y * pict->linesize[2] + x] = 64 + x + i * 5;
-        }
-    }
-}
 
 static AVFrame *get_video_frame(OutputStream *ost)
 {
@@ -753,62 +674,184 @@ static void close_stream(AVFormatContext *oc, OutputStream *ost)
 /**************************************************************/
 /* media file output */
 
-int enc_test()
+
+
+
+
+
+
+int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
 {
-    OutputStream video_st = { 0 }, audio_st = { 0 };
-    const AVOutputFormat *fmt;
-    const char *filename;
-    AVFormatContext *oc;
+    AVFormatContext *fmt_ctx = NULL;
+    AVCodecContext  *audio_ctx = NULL, *video_ctx = NULL;
+    AVStream *audio_stream = NULL, *video_stream = NULL;
+
+
+    avformat_alloc_output_context2( &fmt_ctx, NULL, NULL, filename );
+    if( NULL == fmt_ctx )
+    {
+        fprintf( stderr, "open output file %s fail.\n", filename );
+        return ERROR;
+    }
+
+
+
+
     const AVCodec *audio_codec = NULL, *video_codec = NULL;
-    int ret;
-    int have_video = 0, have_audio = 0;
-    int encode_video = 0, encode_audio = 0;
-    AVDictionary *opt = NULL;
-    int i;
 
-    filename = "D:\\code\\output_test.mpeg";
-    /*for (i = 2; i+1 < argc; i+=2) {
-        if (!strcmp(argv[i], "-flags") || !strcmp(argv[i], "-fflags"))
-            av_dict_set(&opt, argv[i]+1, argv[i+1], 0);
-    }*/
+    int i, ret;
 
-    /* allocate the output media context */
-    avformat_alloc_output_context2(&oc, NULL, NULL, filename);
-    if (!oc) {
-        printf("Could not deduce output format from file extension: using MPEG.\n");
-        avformat_alloc_output_context2(&oc, NULL, "mpeg", filename);
-    }
-    if (!oc)
-        return 1;
 
-    fmt = oc->oformat;
-
-    /* Add the audio and video streams using the default format codecs
-     * and initialize the codecs. */
-    if (fmt->video_codec != AV_CODEC_ID_NONE) {
-        add_stream(&video_st, oc, &video_codec, fmt->video_codec);
-        have_video = 1;
-        encode_video = 1;
-    }
-    if (fmt->audio_codec != AV_CODEC_ID_NONE) {
-        add_stream(&audio_st, oc, &audio_codec, fmt->audio_codec);
-        have_audio = 1;
-        encode_audio = 1;
+    
+    // audio
+    /* find the encoder */
+#if 0
+    audio_codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
+    if ( NULL == audio_codec ) 
+    {
+        fprintf(stderr, "Could not find encoder for '%s'\n", avcodec_get_name(AV_CODEC_ID_AAC));
+        return ERROR;
     }
 
-    /* Now that all the parameters are set, we can open the audio and
-     * video codecs and allocate the necessary encode buffers. */
-    if (have_video)
-        open_video(oc, video_codec, &video_st, opt);
+    audio_stream = avformat_new_stream(fmt_ctx, NULL);
+    if ( NULL == audio_stream ) 
+    {
+        fprintf(stderr, "Could not allocate stream\n");
+        return ERROR;
+    }
 
-    if (have_audio)
-        open_audio(oc, audio_codec, &audio_st, opt);
+    audio_stream->id = fmt_ctx->nb_streams - 1;
 
-    av_dump_format(oc, 0, filename, 1);
+    audio_ctx = avcodec_alloc_context3(audio_codec);
+    if ( NULL == audio_ctx )
+    {
+        fprintf(stderr, "Could not alloc an encoding context\n");
+        return ERROR;
+    }
+
+    audio_ctx->sample_fmt  = audio_codec->sample_fmts ? audio_codec->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
+    audio_ctx->bit_rate    = 320000;
+    audio_ctx->sample_rate = 48000;
+
+    av_channel_layout_copy(&audio_ctx->ch_layout, &(AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO);
+    audio_stream->time_base = (AVRational){ 1, audio_ctx->sample_rate };
+ 
+
+
+    if (fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+        audio_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+#else
+    audio_stream = avformat_new_stream(fmt_ctx, NULL);
+    audio_stream->id = fmt_ctx->nb_streams - 1;
+    audio_stream->time_base = (AVRational){ 1, 48000 };
+#endif
+
+
+    // open audio
+    /*if (c->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE)
+        nb_samples = 10000;
+    else
+        nb_samples = c->frame_size;*/
+
+    /* copy the stream parameters to the muxer */
+    ret = avcodec_parameters_from_context( audio_stream->codecpar, dec_data.audio_dec_ctx );
+    if (ret < 0) 
+    {
+        fprintf(stderr, "Could not copy the stream parameters\n");
+        exit(1);
+    }
+
+
+
+
+
+
+
+
+
+
+    
+
+    // video
+    /* find the encoder */
+#if 0
+    video_codec = avcodec_find_encoder(AV_CODEC_ID_H264);
+    if ( NULL == video_codec ) 
+    {
+        fprintf(stderr, "Could not find encoder for\n");
+        exit(1);
+    }
+
+    video_stream = avformat_new_stream( fmt_ctx, NULL);
+    if ( NULL == video_stream ) 
+    {
+        fprintf(stderr, "Could not allocate stream\n");
+        exit(1);
+    }
+
+    video_stream->id = fmt_ctx->nb_streams-1;
+    video_ctx = avcodec_alloc_context3(video_codec);
+    if ( NULL == video_ctx ) 
+    {
+        fprintf(stderr, "Could not alloc an encoding context\n");
+        exit(1);
+    }
+
+    video_ctx->codec_id = AV_CODEC_ID_H264;
+    
+    video_ctx->bit_rate = 40000000;
+    /* Resolution must be a multiple of two. */
+    video_ctx->width    = 1920;
+    video_ctx->height   = 1080;
+    /* timebase: This is the fundamental unit of time (in seconds) in terms
+     * of which frame timestamps are represented. For fixed-fps content,
+     * timebase should be 1/framerate and timestamp increments should be
+     * identical to 1. */
+    video_stream->time_base = (AVRational){ 1, STREAM_FRAME_RATE };
+    video_ctx->time_base       = video_stream->time_base;
+    
+    video_ctx->gop_size      = 12; /* emit one intra frame every twelve frames at most */
+    video_ctx->pix_fmt       = STREAM_PIX_FMT;
+
+
+    /* Some formats want stream headers to be separate. */
+    if ( fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+        video_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+#else
+    video_stream = avformat_new_stream( fmt_ctx, NULL);
+    video_stream->id = fmt_ctx->nb_streams-1;
+    video_stream->time_base = (AVRational){ 1001, 24000 };
+#endif
+
+
+
+    // open video
+    /* copy the stream parameters to the muxer */
+    ret = avcodec_parameters_from_context( video_stream->codecpar, dec_data.video_dec_ctx );
+    if (ret < 0) {
+        fprintf(stderr, "Could not copy the stream parameters\n");
+        exit(1);
+    }
+
+
+
+
+
+
+
+
+    av_dump_format( fmt_ctx, 0, filename, 1 );
+
+    
+    
+    const AVOutputFormat *fmt = fmt_ctx->oformat;
+    
+    //int ret;
 
     /* open the output file, if needed */
-    if (!(fmt->flags & AVFMT_NOFILE)) {
-        ret = avio_open(&oc->pb, filename, AVIO_FLAG_WRITE);
+    if( ! (fmt->flags & AVFMT_NOFILE) ) 
+    {
+        ret = avio_open( &fmt_ctx->pb, filename, AVIO_FLAG_WRITE);
         if (ret < 0) {
             fprintf(stderr, "Could not open '%s': %s\n", filename,
                     av_err2str(ret));
@@ -817,12 +860,53 @@ int enc_test()
     }
 
     /* Write the stream header, if any. */
-    ret = avformat_write_header(oc, &opt);
-    if (ret < 0) {
+    ret = avformat_write_header( fmt_ctx, NULL );
+    if (ret < 0) 
+    {
         fprintf(stderr, "Error occurred when opening output file: %s\n",
                 av_err2str(ret));
         return 1;
     }
+
+
+    enc_data->fmt_ctx = fmt_ctx;
+    enc_data->audio_ctx = dec_data.audio_dec_ctx; // audio_ctx;
+    enc_data->video_ctx = dec_data.video_dec_ctx; //  video_ctx;
+    enc_data->audio_stream = audio_stream;
+    enc_data->video_stream = video_stream;
+
+    return SUCCESS;
+}
+
+
+
+
+
+
+
+
+
+
+
+int enc_test()
+{
+#if 0
+    OutputStream video_st = { 0 }, audio_st = { 0 };
+    const char *filename;
+    const AVCodec *audio_codec = NULL, *video_codec = NULL;
+    int ret;
+    int have_video = 0, have_audio = 0;
+    int encode_video = 0, encode_audio = 0;
+    AVDictionary *opt = NULL;
+    int i;
+
+
+
+
+    //if (have_audio)
+      //  open_audio(oc, audio_codec, &audio_st, opt);
+
+
 
     while (encode_video || encode_audio) 
     {
@@ -850,6 +934,6 @@ int enc_test()
 
     /* free the stream */
     avformat_free_context(oc);
-
+#endif
     return 0;
 }
