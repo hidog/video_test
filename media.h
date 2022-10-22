@@ -30,12 +30,8 @@ struct Encode_t
 {
    AVFormatContext   *fmt_ctx;
    AVCodecContext    *audio_ctx;
-   //AVCodecContext    *video_ctx;
-   //AVStream    *dec_video_stream;
    AVStream    *audio_stream;
    AVStream    *video_stream;
-   //int64_t     duration_per_frame;
-   //int64_t     duration_count;
    AVPacket    *pkt;
    AVFrame     *frame;
    SwrContext  *swr_ctx;
@@ -48,8 +44,9 @@ int audio_decode( Decode *dec );
 // encode
 int open_output( char *filename, Decode dec, Encode *enc );
 int audio_encode( Encode enc, AVFrame *audio_frame );
+AVFrame *alloc_audio_frame(enum AVSampleFormat sample_fmt, const AVChannelLayout *channel_layout, int sample_rate, int nb_samples );
 
-int enc_test();
+
 
 
 #endif
