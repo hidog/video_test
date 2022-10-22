@@ -204,10 +204,10 @@ int open_output( char *filename,  Decode dec, Encode *enc )
 
 
     // audio
-    audio_codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
+    audio_codec = avcodec_find_encoder(AV_CODEC_ID_OPUS);
     if ( NULL == audio_codec ) 
     {
-        fprintf(stderr, "Could not find encoder for '%s'\n", avcodec_get_name(AV_CODEC_ID_AAC));
+        fprintf(stderr, "Could not find encoder for '%s'\n", avcodec_get_name(AV_CODEC_ID_OPUS));
         return ERROR;
     }
 
@@ -227,13 +227,23 @@ int open_output( char *filename,  Decode dec, Encode *enc )
         return ERROR;
     }
 
-    audio_ctx->sample_fmt  = audio_codec->sample_fmts ? audio_codec->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
+    audio_ctx->sample_fmt  = audio_codec->sample_fmts[0];
     audio_ctx->bit_rate    = 192000;
-    audio_ctx->sample_rate = 48000;
+    audio_ctx->sample_rate = 48000; //dec.audio_ctx->sample_rate;
 
     av_channel_layout_copy(&audio_ctx->ch_layout, &(AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO);
     audio_stream->time_base = (AVRational){ 1, audio_ctx->sample_rate };
  
+
+       /*if ( audio_codec->supported_samplerates ) 
+       {
+            audio_ctx->sample_rate = audio_codec->supported_samplerates[0];
+            for (i = 0; audio_codec->supported_samplerates[i]; i++) 
+            {
+                if ( audio_codec->supported_samplerates[i] == 44100)
+                    audio_ctx->sample_rate = 44100;
+            }
+        }*/
 
 
     if (fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
@@ -289,7 +299,7 @@ int open_output( char *filename,  Decode dec, Encode *enc )
 
     AVFrame *frame = NULL;
     //audio_ctx->frame_size
-    frame = alloc_audio_frame( audio_ctx->sample_fmt, &audio_ctx->ch_layout, audio_ctx->sample_rate, 1024);
+    frame = alloc_audio_frame( audio_ctx->sample_fmt, &audio_ctx->ch_layout, audio_ctx->sample_rate, audio_ctx->frame_size);
 
 
 
@@ -346,7 +356,7 @@ int audio_encode( Encode enc, AVFrame *audio_frame )
 
 
     ret = swr_convert( enc.swr_ctx,
-                       enc.frame->data, dst_nb_samples,
+                       enc.frame->data, enc.frame->nb_samples, //dst_nb_samples,
                        (const uint8_t **)audio_frame->data, audio_frame->nb_samples);
     if (ret < 0) {
         fprintf(stderr, "Error while converting\n");
