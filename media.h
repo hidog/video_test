@@ -21,7 +21,6 @@ struct Decode_t
    AVPacket    *pkt;
    AVFormatContext   *fmt_ctx;
    AVCodecContext    *audio_ctx;
-   //AVCodecContext    *video_ctx;
    AVStream          *video_stream; 
    AVStream          *audio_stream;
 } typedef Decode;
@@ -31,12 +30,12 @@ struct Encode_t
 {
    AVFormatContext   *fmt_ctx;
    AVCodecContext    *audio_ctx;
-   AVCodecContext    *video_ctx;
-   AVStream    *dec_video_stream;
+   //AVCodecContext    *video_ctx;
+   //AVStream    *dec_video_stream;
    AVStream    *audio_stream;
    AVStream    *video_stream;
-   int64_t     duration_per_frame;
-   int64_t     duration_count;
+   //int64_t     duration_per_frame;
+   //int64_t     duration_count;
    AVPacket    *pkt;
    AVFrame     *frame;
    SwrContext  *swr_ctx;

@@ -24,8 +24,6 @@ int main(int argc, char *argv[])
     open_output( "D:\\code\\output.mp4", dec, &enc );
 
 
-
-
     while( av_read_frame( dec.fmt_ctx, dec.pkt ) >= 0 )
     {
         if ( dec.pkt->stream_index == dec.audio_index )

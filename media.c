@@ -56,7 +56,7 @@ int open_input( char *filename, Decode *dec )
     AVFormatContext *fmt_ctx        =   NULL;    
     int             video_index     =   -1,     audio_index     =   -1;
     AVStream        *video_stream   =   NULL,   *audio_stream   =   NULL;
-    AVCodecContext  *video_ctx  =   NULL,   *audio_ctx  =   NULL;
+    AVCodecContext  *audio_ctx  =   NULL;
     AVFrame         *frame  =   NULL;
     AVPacket        *pkt    =   NULL;
 
@@ -146,7 +146,6 @@ int open_input( char *filename, Decode *dec )
     dec->video_stream  =   video_stream;
     dec->audio_stream  =   audio_stream;
     dec->audio_ctx =   audio_ctx;
-    //dec->video_ctx =   video_ctx;
 
     return SUCCESS;
 }
@@ -630,7 +629,7 @@ static void close_stream(AVFormatContext *oc, OutputStream *ost)
 int open_output( char *filename,  Decode dec, Encode *enc )
 {
     AVFormatContext *fmt_ctx = NULL;
-    AVCodecContext  *audio_ctx = NULL, *video_ctx = NULL;
+    AVCodecContext  *audio_ctx = NULL; //, *video_ctx = NULL;
     AVStream *audio_stream = NULL, *video_stream = NULL;
 
 
@@ -644,11 +643,11 @@ int open_output( char *filename,  Decode dec, Encode *enc )
 
 
 
-    const AVCodec *audio_codec = NULL, *video_codec = NULL;
+    const AVCodec *audio_codec = NULL; //, *video_codec = NULL;
 
     int i, ret;
 
-    int64_t duration_per_frame;
+    //int64_t duration_per_frame;
   
 
 
@@ -662,90 +661,12 @@ int open_output( char *filename,  Decode dec, Encode *enc )
     
 
     // video
-    /* find the encoder */
-#if 0
-    video_codec = avcodec_find_encoder(AV_CODEC_ID_HEVC);
-    if ( NULL == video_codec ) 
-    {
-        fprintf(stderr, "Could not find encoder for\n");
-        exit(1);
-    }
 
     video_stream = avformat_new_stream( fmt_ctx, NULL);
-    if ( NULL == video_stream ) 
-    {
-        fprintf(stderr, "Could not allocate stream\n");
-        exit(1);
-    }
+    video_stream->id = fmt_ctx->nb_streams - 1;
 
-    video_stream->id = fmt_ctx->nb_streams-1;
-    video_ctx = avcodec_alloc_context3(video_codec);
-    if ( NULL == video_ctx ) 
-    {
-        fprintf(stderr, "Could not alloc an encoding context\n");
-        exit(1);
-    }
-
-    video_ctx->codec_id = AV_CODEC_ID_HEVC;
-    
-    video_ctx->bit_rate = 40000000;
-    /* Resolution must be a multiple of two. */
-    video_ctx->width    = 1920;
-    video_ctx->height   = 1080;
-    /* timebase: This is the fundamental unit of time (in seconds) in terms
-     * of which frame timestamps are represented. For fixed-fps content,
-     * timebase should be 1/framerate and timestamp increments should be
-     * identical to 1. */
-    video_stream->time_base = (AVRational){ 1001, 24000 };
-    video_ctx->time_base       = video_stream->time_base;
-    
-    video_ctx->gop_size      = dec_data.video_dec_ctx->gop_size; // 12; /* emit one intra frame every twelve frames at most */
-    video_ctx->pix_fmt       = STREAM_PIX_FMT;
-
-
-    /* Some formats want stream headers to be separate. */
-    if ( fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
-        video_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-#else
-    video_stream = avformat_new_stream( fmt_ctx, NULL);
-    video_stream->id = fmt_ctx->nb_streams-1;
-    //video_stream->time_base.num = 1001;
-    //video_stream->time_base.den = 24000;
 
     ret = avcodec_parameters_copy( video_stream->codecpar, dec.video_stream->codecpar );
-
-
-    //video_stream->time_base = (AVRational){ 1, STREAM_FRAME_RATE };
-    //video_ctx->time_base       = video_stream->time_base;
-
-    //video_stream->time_base.num = dec_data.video_stream->r_frame_rate.den; // (AVRational){ 1001, 24000 };
-    //video_stream->time_base.den = dec_data.video_stream->r_frame_rate.num; // (AVRational){ 1001, 24000 };
-
-    //duration_per_frame  =  av_rescale( AV_TIME_BASE, dec_data.video_stream->r_frame_rate.den, dec_data.video_stream->r_frame_rate.num );
-
-#endif
-
-
-    duration_per_frame  =  av_rescale( AV_TIME_BASE, 1001, 24000 );
-
-    // open video
-    /* copy the stream parameters to the muxer */
-    //video_ctx = avcodec_alloc_context3(video_codec);
-
-    //ret     =   avcodec_parameters_to_context( video_ctx, dec_data.video_stream->codecpar );
-    //ret     =   avcodec_parameters_from_context( video_stream->codecpar, video_ctx );
-
-
-    //ret     =   avcodec_parameters_to_context( video_ctx, dec_data.video_stream->codecpar );
-    //video_stream->time_base.den     =   dec_data.video_dec_ctx->time_base.num; 
-    //video_stream->time_base.num     =   dec_data.video_dec_ctx->time_base.den; 
-    //video_stream = dec_data.video_stream;
-
-
-    /*if (ret < 0) {
-        fprintf(stderr, "Could not copy the stream parameters\n");
-        exit(1);
-    }*/
 
 
 
@@ -762,8 +683,6 @@ int open_output( char *filename,  Decode dec, Encode *enc )
 
       
     // audio
-    /* find the encoder */
-#if 1
     audio_codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
     if ( NULL == audio_codec ) 
     {
@@ -802,11 +721,7 @@ int open_output( char *filename,  Decode dec, Encode *enc )
 
     ret = avcodec_open2( audio_ctx, audio_codec, NULL );
 
-#else
-    audio_stream = avformat_new_stream(fmt_ctx, NULL);
-    audio_stream->id = fmt_ctx->nb_streams - 1;
-    audio_stream->time_base = dec_data.audio_dec_ctx->time_base; //(AVRational){ 1, 48000 };
-#endif
+
 
 
     // open audio
@@ -895,16 +810,11 @@ int open_output( char *filename,  Decode dec, Encode *enc )
 
     enc->fmt_ctx = fmt_ctx;
     enc->audio_ctx = audio_ctx;
-    //enc->video_ctx = dec.video_ctx; //  video_ctx;
     enc->audio_stream = audio_stream;
     enc->video_stream = video_stream;
-    enc->duration_per_frame = duration_per_frame;
-    enc->duration_count = 0;
     enc->pkt = pkt;
     enc->frame = frame;
     enc->swr_ctx = swr_ctx;
-
-    enc->dec_video_stream = dec.video_stream;
 
     return SUCCESS;
 }
