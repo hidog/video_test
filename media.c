@@ -769,8 +769,11 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
 #else
     video_stream = avformat_new_stream( fmt_ctx, NULL);
     video_stream->id = fmt_ctx->nb_streams-1;
-    video_stream->time_base.num = 1001;
-    video_stream->time_base.den = 24000;
+    //video_stream->time_base.num = 1001;
+    //video_stream->time_base.den = 24000;
+
+    ret = avcodec_parameters_copy( video_stream->codecpar, dec_data.video_stream->codecpar );
+
 
     //video_stream->time_base = (AVRational){ 1, STREAM_FRAME_RATE };
     //video_ctx->time_base       = video_stream->time_base;
@@ -787,10 +790,10 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
 
     // open video
     /* copy the stream parameters to the muxer */
-    video_ctx = avcodec_alloc_context3(video_codec);
+    //video_ctx = avcodec_alloc_context3(video_codec);
 
-    ret     =   avcodec_parameters_to_context( video_ctx, dec_data.video_stream->codecpar );
-    ret     =   avcodec_parameters_from_context( video_stream->codecpar, video_ctx );
+    //ret     =   avcodec_parameters_to_context( video_ctx, dec_data.video_stream->codecpar );
+    //ret     =   avcodec_parameters_from_context( video_stream->codecpar, video_ctx );
 
 
     //ret     =   avcodec_parameters_to_context( video_ctx, dec_data.video_stream->codecpar );

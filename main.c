@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include "media.h"
 
+
+#include "remuxing.h"
+
 #include <libavutil/imgutils.h>
 #include <libavutil/samplefmt.h>
 #include <libavutil/timestamp.h>
@@ -10,6 +13,8 @@
 
 int main(int argc, char *argv[])
 {
+    //remuxing_example();
+
     //decode_example();
 
     //encode_example();
@@ -54,7 +59,7 @@ int main(int argc, char *argv[])
         {
             dec_data.pkt->stream_index = enc_data.video_stream->index;
 
-            AVRational stb = dec_data.video_stream->time_base;
+            //AVRational stb = dec_data.video_stream->time_base;
             //AVRational stb = {1, 900000};
             //AVRational stb2 = dec_data.video_stream->time_base;
 
@@ -64,8 +69,8 @@ int main(int argc, char *argv[])
 
             //AVRational r = { 1001, 24000 };
 #if 1
-            dec_data.pkt->pts    =   1.0 / AV_TIME_BASE * enc_data.duration_count * stb.den / stb.num;
-	        dec_data.pkt->dts    =   dec_data.pkt->dts;
+            /*dec_data.pkt->pts    =   1.0 / AV_TIME_BASE * enc_data.duration_count * stb.den / stb.num;
+	        dec_data.pkt->dts    =   dec_data.pkt->pts;
 
             AVRational  realtime_duration = { enc_data.duration_per_frame, AV_TIME_BASE };
             AVRational  duration     =   av_div_q( realtime_duration, stb );
@@ -73,10 +78,10 @@ int main(int argc, char *argv[])
 
             enc_data.duration_count  +=  enc_data.duration_per_frame;
 
-            AVRational r = { 1, 90000 };
+            AVRational r = { 1, 90000 };*/
 
 
-            av_packet_rescale_ts( dec_data.pkt, stb, enc_data.video_stream->time_base  );
+            av_packet_rescale_ts( dec_data.pkt, dec_data.video_stream->time_base, enc_data.video_stream->time_base  );
 #endif
             //av_packet_rescale_ts( dec_data.pkt,  stb,  stb2 );
 
