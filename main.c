@@ -10,6 +10,8 @@
 
 int main(int argc, char *argv[])
 {
+    //decode_example();
+
     //encode_example();
 
     int     ret;
@@ -30,14 +32,23 @@ int main(int argc, char *argv[])
 
     while( av_read_frame( dec_data.fmt_ctx, dec_data.pkt ) >= 0 )
     {
-        //if ( dec_data.pkt->stream_index == dec_data.audio_index )
-          //  ret =   audio_decode( &dec_data );
+        if ( dec_data.pkt->stream_index == dec_data.audio_index )
+            ret =   audio_decode( &dec_data );
 
 
         if( dec_data.pkt->stream_index == dec_data.audio_index )
         {
-            av_packet_rescale_ts( dec_data.pkt, enc_data.audio_ctx->time_base, enc_data.audio_stream->time_base);
-            dec_data.pkt->stream_index = enc_data.audio_stream->index;
+            int ret = audio_encode( enc_data, dec_data.frame );
+
+            av_frame_unref(dec_data.frame);
+
+            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+            {}
+            else
+            {
+                av_packet_rescale_ts( enc_data.pkt, enc_data.audio_ctx->time_base, enc_data.audio_stream->time_base);
+                enc_data.pkt->stream_index = enc_data.audio_stream->index;
+            }
         }
         else
         {

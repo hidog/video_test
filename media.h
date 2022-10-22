@@ -6,6 +6,7 @@
 #include <libavutil/timestamp.h>
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libswresample/swresample.h>
 
 
 #define SUCCESS 1
@@ -39,6 +40,9 @@ struct EncodeData_t
     AVStream *video_stream;
     int64_t     duration_per_frame;
     int64_t     duration_count;
+    AVPacket    *pkt;
+    AVFrame     *frame;
+    SwrContext  *swr_ctx;
 } typedef EncodeData;
 
 
@@ -50,6 +54,7 @@ int audio_decode( DecodeData *dec_data );
 
 int open_output( char *filename, DecodeData dec_data, EncodeData *enc_data );
 
+int audio_encode( EncodeData enc_data, AVFrame *audio_frame );
 
 
 int enc_test();

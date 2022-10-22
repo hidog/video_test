@@ -1,5 +1,7 @@
 #include "media.h"
 
+#include <assert.h>
+
 #include <libavutil/imgutils.h>
 #include <libavutil/samplefmt.h>
 #include <libavutil/timestamp.h>
@@ -56,9 +58,9 @@ int     audio_decode( DecodeData *dec_data )
                 fprintf( stderr, "error\n");
         }
 
-        ret =   output_audio_frame( dec_data->frame );
+        //ret =   output_audio_frame( dec_data->frame );
 
-        av_frame_unref(dec_data->frame);
+        //av_frame_unref(dec_data->frame);
     }
 
     return 0;
@@ -707,65 +709,7 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
     int i, ret;
 
     int64_t duration_per_frame;
-    
-    // audio
-    /* find the encoder */
-#if 0
-    audio_codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
-    if ( NULL == audio_codec ) 
-    {
-        fprintf(stderr, "Could not find encoder for '%s'\n", avcodec_get_name(AV_CODEC_ID_AAC));
-        return ERROR;
-    }
-
-    audio_stream = avformat_new_stream(fmt_ctx, NULL);
-    if ( NULL == audio_stream ) 
-    {
-        fprintf(stderr, "Could not allocate stream\n");
-        return ERROR;
-    }
-
-    audio_stream->id = fmt_ctx->nb_streams - 1;
-
-    audio_ctx = avcodec_alloc_context3(audio_codec);
-    if ( NULL == audio_ctx )
-    {
-        fprintf(stderr, "Could not alloc an encoding context\n");
-        return ERROR;
-    }
-
-    audio_ctx->sample_fmt  = audio_codec->sample_fmts ? audio_codec->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
-    audio_ctx->bit_rate    = 320000;
-    audio_ctx->sample_rate = 48000;
-
-    av_channel_layout_copy(&audio_ctx->ch_layout, &(AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO);
-    audio_stream->time_base = (AVRational){ 1, audio_ctx->sample_rate };
- 
-
-
-    if (fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
-        audio_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-#else
-    audio_stream = avformat_new_stream(fmt_ctx, NULL);
-    audio_stream->id = fmt_ctx->nb_streams - 1;
-    audio_stream->time_base = dec_data.audio_dec_ctx->time_base; //(AVRational){ 1, 48000 };
-#endif
-
-
-    // open audio
-    /*if (c->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE)
-        nb_samples = 10000;
-    else
-        nb_samples = c->frame_size;*/
-
-    /* copy the stream parameters to the muxer */
-    ret = avcodec_parameters_from_context( audio_stream->codecpar, dec_data.audio_dec_ctx );
-    if (ret < 0) 
-    {
-        fprintf(stderr, "Could not copy the stream parameters\n");
-        exit(1);
-    }
-
+  
 
 
 
@@ -854,6 +798,81 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
 
 
 
+
+
+
+
+
+
+      
+    // audio
+    /* find the encoder */
+#if 1
+    audio_codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
+    if ( NULL == audio_codec ) 
+    {
+        fprintf(stderr, "Could not find encoder for '%s'\n", avcodec_get_name(AV_CODEC_ID_AAC));
+        return ERROR;
+    }
+
+    audio_stream = avformat_new_stream(fmt_ctx, NULL);
+    if ( NULL == audio_stream ) 
+    {
+        fprintf(stderr, "Could not allocate stream\n");
+        return ERROR;
+    }
+
+    audio_stream->id = fmt_ctx->nb_streams - 1;
+
+    audio_ctx = avcodec_alloc_context3(audio_codec);
+    if ( NULL == audio_ctx )
+    {
+        fprintf(stderr, "Could not alloc an encoding context\n");
+        return ERROR;
+    }
+
+    audio_ctx->sample_fmt  = audio_codec->sample_fmts ? audio_codec->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
+    audio_ctx->bit_rate    = 192000;
+    audio_ctx->sample_rate = 48000;
+
+    av_channel_layout_copy(&audio_ctx->ch_layout, &(AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO);
+    audio_stream->time_base = (AVRational){ 1, audio_ctx->sample_rate };
+ 
+
+
+    if (fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+        audio_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+
+
+    ret = avcodec_open2( audio_ctx, audio_codec, NULL );
+
+#else
+    audio_stream = avformat_new_stream(fmt_ctx, NULL);
+    audio_stream->id = fmt_ctx->nb_streams - 1;
+    audio_stream->time_base = dec_data.audio_dec_ctx->time_base; //(AVRational){ 1, 48000 };
+#endif
+
+
+    // open audio
+    /*if (c->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE)
+        nb_samples = 10000;
+    else
+        nb_samples = c->frame_size;*/
+
+    /* copy the stream parameters to the muxer */
+    ret = avcodec_parameters_from_context( audio_stream->codecpar, audio_ctx );
+    if (ret < 0) 
+    {
+        fprintf(stderr, "Could not copy the stream parameters\n");
+        exit(1);
+    }
+
+
+
+
+
+
+
     av_dump_format( fmt_ctx, 0, filename, 1 );
 
     
@@ -882,14 +901,52 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
         return 1;
     }
 
+    AVPacket *pkt = NULL;
+    pkt =   av_packet_alloc();
+
+
+    AVFrame *frame = NULL;
+    //audio_ctx->frame_size
+    frame = alloc_audio_frame( audio_ctx->sample_fmt, &audio_ctx->ch_layout, audio_ctx->sample_rate, 1024);
+
+
+
+
+
+    /* create resampler context */
+    struct SwrContext *swr_ctx = NULL;
+    swr_ctx = swr_alloc();
+    if (!swr_ctx) {
+        fprintf(stderr, "Could not allocate resampler context\n");
+        exit(1);
+    }
+
+    /* set options */
+    av_opt_set_chlayout  (swr_ctx, "in_chlayout",       &dec_data.audio_dec_ctx->ch_layout,      0);
+    av_opt_set_int       (swr_ctx, "in_sample_rate",     dec_data.audio_dec_ctx->sample_rate,    0);
+    av_opt_set_sample_fmt(swr_ctx, "in_sample_fmt",      dec_data.audio_dec_ctx->sample_fmt, 0);
+    av_opt_set_chlayout  (swr_ctx, "out_chlayout",      &audio_ctx->ch_layout,      0);
+    av_opt_set_int       (swr_ctx, "out_sample_rate",    audio_ctx->sample_rate,    0);
+    av_opt_set_sample_fmt(swr_ctx, "out_sample_fmt",     audio_ctx->sample_fmt,     0);
+
+    /* initialize the resampling context */
+    if ((ret = swr_init(swr_ctx)) < 0) {
+        fprintf(stderr, "Failed to initialize the resampling context\n");
+        exit(1);
+    }
+
+
 
     enc_data->fmt_ctx = fmt_ctx;
-    enc_data->audio_ctx = dec_data.audio_dec_ctx; // audio_ctx;
+    enc_data->audio_ctx = audio_ctx;
     enc_data->video_ctx = dec_data.video_dec_ctx; //  video_ctx;
     enc_data->audio_stream = audio_stream;
     enc_data->video_stream = video_stream;
     enc_data->duration_per_frame = duration_per_frame;
     enc_data->duration_count = 0;
+    enc_data->pkt = pkt;
+    enc_data->frame = frame;
+    enc_data->swr_ctx = swr_ctx;
 
     return SUCCESS;
 }
@@ -898,6 +955,83 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
 
 
 
+int audio_encode( EncodeData enc_data, AVFrame *audio_frame )
+{
+    int ret;
+
+
+    int64_t delay = swr_get_delay(enc_data.swr_ctx, enc_data.audio_ctx->sample_rate);
+    int dst_nb_samples = av_rescale_rnd( delay + audio_frame->nb_samples,
+                                         enc_data.audio_ctx->sample_rate, enc_data.audio_ctx->sample_rate, AV_ROUND_UP);
+    assert(dst_nb_samples == audio_frame->nb_samples);
+
+    ret = av_frame_make_writable(enc_data.frame);
+    if (ret < 0)
+        exit(1);
+
+
+    ret = swr_convert( enc_data.swr_ctx,
+                       enc_data.frame->data, dst_nb_samples,
+                       (const uint8_t **)audio_frame->data, audio_frame->nb_samples);
+    if (ret < 0) {
+        fprintf(stderr, "Error while converting\n");
+        exit(1);
+    }
+    //frame = ost->frame;
+
+    static int sample_count = 0;
+
+    enc_data.frame->pts = av_rescale_q( sample_count, (AVRational){1, enc_data.audio_ctx->sample_rate}, enc_data.audio_stream->time_base);
+    sample_count += dst_nb_samples;
+
+
+
+
+
+
+
+
+
+    // send the frame to the encoder
+    ret = avcodec_send_frame( enc_data.audio_ctx, enc_data.frame );
+
+
+    if (ret < 0) 
+    {
+        fprintf(stderr, "Error sending a frame to the encoder: %s\n",
+                av_err2str(ret));
+        //exit(1);
+    }
+
+
+    ret = avcodec_receive_packet( enc_data.audio_ctx, enc_data.pkt );
+    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+        return ret;
+    else if (ret < 0) 
+    {
+        fprintf(stderr, "Error encoding a frame: %s\n", av_err2str(ret));
+        exit(1);
+    }
+    
+    /* rescale output packet timestamp values from codec to stream timebase */
+    av_packet_rescale_ts( enc_data.pkt, enc_data.audio_ctx->time_base, enc_data.audio_stream->time_base );
+    enc_data.pkt->stream_index = enc_data.audio_stream->index;
+    
+    /* Write the compressed frame to the media file. */
+    //log_packet(fmt_ctx, pkt);
+    //ret = av_interleaved_write_frame( enc_data.fmt_ctx, enc_data.pkt );
+    /* pkt is now blank (av_interleaved_write_frame() takes ownership of
+     * its contents and resets pkt), so that no unreferencing is necessary.
+     * This would be different if one used av_write_frame(). */
+    //if (ret < 0) 
+    //{
+      //  fprintf(stderr, "Error while writing output packet: %s\n", av_err2str(ret));
+//        exit(1);
+  //  }
+    
+
+    return ret;
+}
 
 
 
