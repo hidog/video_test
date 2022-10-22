@@ -21,7 +21,7 @@ struct Decode_t
    AVPacket    *pkt;
    AVFormatContext   *fmt_ctx;
    AVCodecContext    *audio_ctx;
-   AVCodecContext    *video_ctx;
+   //AVCodecContext    *video_ctx;
    AVStream          *video_stream; 
    AVStream          *audio_stream;
 } typedef Decode;

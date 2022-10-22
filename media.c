@@ -117,43 +117,9 @@ int open_input( char *filename, Decode *dec )
 
     video_index =   av_find_best_stream( fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0 );
     if( video_index < 0 )
-    {
         printf( "NOTE: this file has no video stream.\n" );
-    }
     else 
-    {
         video_stream    =   fmt_ctx->streams[video_index];
-        codec =   avcodec_find_decoder( video_stream->codecpar->codec_id );
-        if( NULL == codec )
-        {
-            fprintf( stderr, "find audio codec fail.\n" );
-            return ERROR;
-        }
-
-        video_ctx   =   avcodec_alloc_context3(codec);
-        if( NULL  == video_ctx )
-        {
-            fprintf( stderr, "allocate audio codec ctx fail.\n" );
-            return ERROR;
-        }
-
-        ret =   avcodec_parameters_to_context( video_ctx, video_stream->codecpar);
-        if( ret < 0 )
-        {
-            fprintf( stderr, "copy audio codec parameters to audio decoder ctx fail.\n" );
-            return ERROR;
-        }
-
-        ret =   avcodec_open2( video_ctx, codec, NULL );
-        if( ret < 0 )
-        {
-            fprintf( stderr, "open audio codec fail\n" );
-            return ERROR;
-        }
-
-        video_ctx->pkt_timebase   =   fmt_ctx->streams[video_index]->time_base;
-        video_ctx->time_base      =   fmt_ctx->streams[video_index]->r_frame_rate;
-    }
 
     av_dump_format( fmt_ctx, 0, filename, 0 );
 
@@ -180,7 +146,7 @@ int open_input( char *filename, Decode *dec )
     dec->video_stream  =   video_stream;
     dec->audio_stream  =   audio_stream;
     dec->audio_ctx =   audio_ctx;
-    dec->video_ctx =   video_ctx;
+    //dec->video_ctx =   video_ctx;
 
     return SUCCESS;
 }
@@ -929,7 +895,7 @@ int open_output( char *filename,  Decode dec, Encode *enc )
 
     enc->fmt_ctx = fmt_ctx;
     enc->audio_ctx = audio_ctx;
-    enc->video_ctx = dec.video_ctx; //  video_ctx;
+    //enc->video_ctx = dec.video_ctx; //  video_ctx;
     enc->audio_stream = audio_stream;
     enc->video_stream = video_stream;
     enc->duration_per_frame = duration_per_frame;
