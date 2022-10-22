@@ -723,8 +723,8 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
 
     // video
     /* find the encoder */
-#if 0
-    video_codec = avcodec_find_encoder(AV_CODEC_ID_H264);
+#if 1
+    video_codec = avcodec_find_encoder(AV_CODEC_ID_HEVC);
     if ( NULL == video_codec ) 
     {
         fprintf(stderr, "Could not find encoder for\n");
@@ -746,7 +746,7 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
         exit(1);
     }
 
-    video_ctx->codec_id = AV_CODEC_ID_H264;
+    video_ctx->codec_id = AV_CODEC_ID_HEVC;
     
     video_ctx->bit_rate = 40000000;
     /* Resolution must be a multiple of two. */
@@ -756,10 +756,10 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
      * of which frame timestamps are represented. For fixed-fps content,
      * timebase should be 1/framerate and timestamp increments should be
      * identical to 1. */
-    video_stream->time_base = (AVRational){ 1, STREAM_FRAME_RATE };
+    video_stream->time_base = (AVRational){ 1001, 24000 };
     video_ctx->time_base       = video_stream->time_base;
     
-    video_ctx->gop_size      = 12; /* emit one intra frame every twelve frames at most */
+    video_ctx->gop_size      = dec_data.video_dec_ctx->gop_size; // 12; /* emit one intra frame every twelve frames at most */
     video_ctx->pix_fmt       = STREAM_PIX_FMT;
 
 
@@ -769,27 +769,40 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
 #else
     video_stream = avformat_new_stream( fmt_ctx, NULL);
     video_stream->id = fmt_ctx->nb_streams-1;
+    video_stream->time_base.num = 1001;
+    video_stream->time_base.den = 24000;
+
+    //video_stream->time_base = (AVRational){ 1, STREAM_FRAME_RATE };
+    //video_ctx->time_base       = video_stream->time_base;
+
     //video_stream->time_base.num = dec_data.video_stream->r_frame_rate.den; // (AVRational){ 1001, 24000 };
     //video_stream->time_base.den = dec_data.video_stream->r_frame_rate.num; // (AVRational){ 1001, 24000 };
 
-    duration_per_frame  =  av_rescale( AV_TIME_BASE, dec_data.video_stream->r_frame_rate.den, dec_data.video_stream->r_frame_rate.num );
+    //duration_per_frame  =  av_rescale( AV_TIME_BASE, dec_data.video_stream->r_frame_rate.den, dec_data.video_stream->r_frame_rate.num );
 
 #endif
 
 
+    duration_per_frame  =  av_rescale( AV_TIME_BASE, 1001, 24000 );
 
     // open video
     /* copy the stream parameters to the muxer */
-    ret = avcodec_parameters_from_context( video_stream->codecpar, dec_data.video_dec_ctx );
+    //video_ctx = avcodec_alloc_context3(video_codec);
+
     //ret     =   avcodec_parameters_to_context( video_ctx, dec_data.video_stream->codecpar );
-    video_stream->time_base.den     =   dec_data.video_dec_ctx->time_base.num; 
-    video_stream->time_base.num     =   dec_data.video_dec_ctx->time_base.den; 
+    ret     =   avcodec_parameters_from_context( video_stream->codecpar, video_ctx );
 
 
-    if (ret < 0) {
+    //ret     =   avcodec_parameters_to_context( video_ctx, dec_data.video_stream->codecpar );
+    //video_stream->time_base.den     =   dec_data.video_dec_ctx->time_base.num; 
+    //video_stream->time_base.num     =   dec_data.video_dec_ctx->time_base.den; 
+    //video_stream = dec_data.video_stream;
+
+
+    /*if (ret < 0) {
         fprintf(stderr, "Could not copy the stream parameters\n");
         exit(1);
-    }
+    }*/
 
 
 
@@ -947,6 +960,8 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
     enc_data->pkt = pkt;
     enc_data->frame = frame;
     enc_data->swr_ctx = swr_ctx;
+
+    enc_data->dec_video_stream = dec_data.video_stream;
 
     return SUCCESS;
 }

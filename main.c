@@ -54,20 +54,28 @@ int main(int argc, char *argv[])
         {
             dec_data.pkt->stream_index = enc_data.video_stream->index;
 
-            //AVRational stb = enc_data.video_stream->time_base;
+            AVRational stb = dec_data.video_stream->time_base;
+            //stb.num = enc_data.video_stream->time_base.den;
+            //stb.den = enc_data.video_stream->time_base.num;
 
-            AVRational r = { 1001, 48000 };
 
-            dec_data.pkt->pts    =   1.0 / AV_TIME_BASE * enc_data.duration_count * 48000 / 1001;
+            //AVRational r = { 1001, 24000 };
+
+            dec_data.pkt->pts    =   1.0 / AV_TIME_BASE * enc_data.duration_count * stb.den / stb.num;
 	        dec_data.pkt->dts    =   dec_data.pkt->pts;
 
             AVRational  realtime_duration = { enc_data.duration_per_frame, AV_TIME_BASE };
-            AVRational  duration     =   av_div_q( realtime_duration, r );
+            AVRational  duration     =   av_div_q( realtime_duration, stb );
             dec_data.pkt->duration   =   av_q2d(duration);
 
             enc_data.duration_count  +=  enc_data.duration_per_frame;
 
-            av_packet_rescale_ts( dec_data.pkt, dec_data.video_dec_ctx->time_base, r );
+            AVRational r = { 1, 90000 };
+
+
+            //av_packet_rescale_ts( dec_data.pkt, stb, enc_data.video_stream->time_base  );
+            av_packet_rescale_ts( dec_data.pkt,  stb,  enc_data.video_stream->time_base );
+
         }
 
 

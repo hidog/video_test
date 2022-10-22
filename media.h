@@ -36,6 +36,7 @@ struct EncodeData_t
     AVFormatContext *fmt_ctx;
     AVCodecContext  *audio_ctx;
     AVCodecContext *video_ctx;
+    AVStream *dec_video_stream;
     AVStream *audio_stream;
     AVStream *video_stream;
     int64_t     duration_per_frame;
