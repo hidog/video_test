@@ -9,58 +9,48 @@
 #include <libswresample/swresample.h>
 
 
-#define SUCCESS 1
-#define ERROR -1
+#define  SUCCESS  1
+#define  ERROR    -1
 
 
-
-
-struct DecodeData_t
+struct Decode_t
 {
-    int     video_index;
-    int     audio_index;
-    AVFormatContext *fmt_ctx;
-    AVCodecContext  *audio_dec_ctx;
-    AVCodecContext  *video_dec_ctx;
-    AVStream        *video_stream; 
-    AVStream        *audio_stream;
-    AVFrame     *frame;
-    AVPacket    *pkt;
-} typedef DecodeData;
+   int   video_index;
+   int   audio_index;
+   AVFrame     *frame;
+   AVPacket    *pkt;
+   AVFormatContext   *fmt_ctx;
+   AVCodecContext    *audio_ctx;
+   AVCodecContext    *video_ctx;
+   AVStream          *video_stream; 
+   AVStream          *audio_stream;
+} typedef Decode;
 
 
-
-
-struct EncodeData_t
+struct Encode_t
 {
-    AVFormatContext *fmt_ctx;
-    AVCodecContext  *audio_ctx;
-    AVCodecContext *video_ctx;
-    AVStream *dec_video_stream;
-    AVStream *audio_stream;
-    AVStream *video_stream;
-    int64_t     duration_per_frame;
-    int64_t     duration_count;
-    AVPacket    *pkt;
-    AVFrame     *frame;
-    SwrContext  *swr_ctx;
-} typedef EncodeData;
+   AVFormatContext   *fmt_ctx;
+   AVCodecContext    *audio_ctx;
+   AVCodecContext    *video_ctx;
+   AVStream    *dec_video_stream;
+   AVStream    *audio_stream;
+   AVStream    *video_stream;
+   int64_t     duration_per_frame;
+   int64_t     duration_count;
+   AVPacket    *pkt;
+   AVFrame     *frame;
+   SwrContext  *swr_ctx;
+} typedef Encode;
 
+// decode
+int open_input( char *filename, Decode *dec );
+int audio_decode( Decode *dec );
 
-
-int open_input( char *filename, DecodeData *dec_data );
-
-int audio_decode( DecodeData *dec_data );
-
-
-int open_output( char *filename, DecodeData dec_data, EncodeData *enc_data );
-
-int audio_encode( EncodeData enc_data, AVFrame *audio_frame );
-
+// encode
+int open_output( char *filename, Decode dec, Encode *enc );
+int audio_encode( Encode enc, AVFrame *audio_frame );
 
 int enc_test();
-
-
 
 
 #endif

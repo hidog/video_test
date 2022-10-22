@@ -1,9 +1,6 @@
 #include <stdio.h>
 #include "media.h"
 
-
-#include "remuxing.h"
-
 #include <libavutil/imgutils.h>
 #include <libavutil/samplefmt.h>
 #include <libavutil/timestamp.h>
@@ -13,85 +10,51 @@
 
 int main(int argc, char *argv[])
 {
-    //remuxing_example();
-
-    //decode_example();
-
-    //encode_example();
-
     int     ret;
-    DecodeData  dec_data;
+    Decode  dec;
 
-    ret =   open_input( "D:\\code\\input.mp4", &dec_data );
+    ret =   open_input( "D:\\code\\input.mp4", &dec );
     if( ret < 0 )
     {
         fprintf( stderr, "open input fail.\n" );
         return 0;
     }
 
-    EncodeData enc_data;
-    open_output( "D:\\code\\output.mp4", dec_data, &enc_data );
+    Encode enc;
+    open_output( "D:\\code\\output.mp4", dec, &enc );
 
 
 
 
-    while( av_read_frame( dec_data.fmt_ctx, dec_data.pkt ) >= 0 )
+    while( av_read_frame( dec.fmt_ctx, dec.pkt ) >= 0 )
     {
-        if ( dec_data.pkt->stream_index == dec_data.audio_index )
-            ret =   audio_decode( &dec_data );
+        if ( dec.pkt->stream_index == dec.audio_index )
+            ret =   audio_decode( &dec );
 
 
-        if( dec_data.pkt->stream_index == dec_data.audio_index )
+        if( dec.pkt->stream_index == dec.audio_index )
         {
-            int ret = audio_encode( enc_data, dec_data.frame );
+            int ret = audio_encode( enc, dec.frame );
 
-            av_frame_unref(dec_data.frame);
+            av_frame_unref(dec.frame);
 
             if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
             {}
             else
             {
-                av_packet_rescale_ts( enc_data.pkt, enc_data.audio_ctx->time_base, enc_data.audio_stream->time_base);
-                enc_data.pkt->stream_index = enc_data.audio_stream->index;
+                av_packet_rescale_ts( enc.pkt, enc.audio_ctx->time_base, enc.audio_stream->time_base);
+                enc.pkt->stream_index = enc.audio_stream->index;
+                int ret2 = av_interleaved_write_frame( enc.fmt_ctx, enc.pkt );
             }
         }
         else
         {
-            dec_data.pkt->stream_index = enc_data.video_stream->index;
-
-            //AVRational stb = dec_data.video_stream->time_base;
-            //AVRational stb = {1, 900000};
-            //AVRational stb2 = dec_data.video_stream->time_base;
-
-            //stb.num = enc_data.video_stream->time_base.den;
-            //stb.den = enc_data.video_stream->time_base.num;
-
-
-            //AVRational r = { 1001, 24000 };
-#if 1
-            /*dec_data.pkt->pts    =   1.0 / AV_TIME_BASE * enc_data.duration_count * stb.den / stb.num;
-	        dec_data.pkt->dts    =   dec_data.pkt->pts;
-
-            AVRational  realtime_duration = { enc_data.duration_per_frame, AV_TIME_BASE };
-            AVRational  duration     =   av_div_q( realtime_duration, stb );
-            dec_data.pkt->duration   =   av_q2d(duration);
-
-            enc_data.duration_count  +=  enc_data.duration_per_frame;
-
-            AVRational r = { 1, 90000 };*/
-
-
-            av_packet_rescale_ts( dec_data.pkt, dec_data.video_stream->time_base, enc_data.video_stream->time_base  );
-#endif
-            //av_packet_rescale_ts( dec_data.pkt,  stb,  stb2 );
-
+            dec.pkt->stream_index = enc.video_stream->index;
+            av_packet_rescale_ts( dec.pkt, dec.video_stream->time_base, enc.video_stream->time_base  );
+            int ret2 = av_interleaved_write_frame( enc.fmt_ctx, dec.pkt );
         }
 
-
-        int ret2 = av_interleaved_write_frame( enc_data.fmt_ctx, dec_data.pkt );
-
-
-        av_packet_unref( dec_data.pkt );
+        av_packet_unref( dec.pkt );
         if (ret < 0)
             break;
     }
@@ -102,7 +65,7 @@ int main(int argc, char *argv[])
     printf("Demuxing succeeded.\n");
 
 
-    av_write_trailer( enc_data.fmt_ctx );
+    av_write_trailer( enc.fmt_ctx );
 
 
 #if 0

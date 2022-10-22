@@ -17,30 +17,13 @@ static FILE *audio_dst_file = NULL;
 static int audio_frame_count = 0;
 
 
-static int output_audio_frame(AVFrame *frame)
-{
-
-    size_t unpadded_linesize = frame->nb_samples * av_get_bytes_per_sample(frame->format);
-    printf( "audio_frame n:%d nb_samples:%d \n", audio_frame_count++, frame->nb_samples );
-
-    //fwrite(frame->extended_data[0], 1, unpadded_linesize, audio_dst_file);
-
-    return 0;
-
-}
 
 
-
-
-
-
-
-int     audio_decode( DecodeData *dec_data )
+int     audio_decode( Decode *dec )
 {  
     int ret = 0;
 
-    // submit the packet to the decoder
-    ret = avcodec_send_packet( dec_data->audio_dec_ctx, dec_data->pkt );
+    ret = avcodec_send_packet( dec->audio_ctx, dec->pkt );
 
     if( ret < 0 )
     {
@@ -48,10 +31,9 @@ int     audio_decode( DecodeData *dec_data )
         return ret;
     }
 
-    // get all the available frames from the decoder
     if( ret >= 0 )
     {
-        ret = avcodec_receive_frame( dec_data->audio_dec_ctx, dec_data->frame );
+        ret = avcodec_receive_frame( dec->audio_ctx, dec->frame );
         if (ret < 0) 
         {
             if ( !(ret == AVERROR_EOF || ret == AVERROR(EAGAIN)) )
@@ -59,7 +41,6 @@ int     audio_decode( DecodeData *dec_data )
         }
 
         //ret =   output_audio_frame( dec_data->frame );
-
         //av_frame_unref(dec_data->frame);
     }
 
@@ -70,23 +51,16 @@ int     audio_decode( DecodeData *dec_data )
 
 
 
-
-
-
-
-
-
-
-int open_input( char *filename, DecodeData *dec_data )
+int open_input( char *filename, Decode *dec )
 {
     AVFormatContext *fmt_ctx        =   NULL;    
     int             video_index     =   -1,     audio_index     =   -1;
     AVStream        *video_stream   =   NULL,   *audio_stream   =   NULL;
-    AVCodecContext  *video_dec_ctx  =   NULL,   *audio_dec_ctx  =   NULL;
+    AVCodecContext  *video_ctx  =   NULL,   *audio_ctx  =   NULL;
     AVFrame         *frame  =   NULL;
     AVPacket        *pkt    =   NULL;
 
-    const AVCodec *dec  =   NULL;    
+    const AVCodec *codec  =   NULL;    
     int ret;
 
     if( avformat_open_input( &fmt_ctx, filename, NULL, NULL ) < 0 )
@@ -110,35 +84,35 @@ int open_input( char *filename, DecodeData *dec_data )
     else 
     {
         audio_stream    =   fmt_ctx->streams[audio_index];
-        dec =   avcodec_find_decoder( audio_stream->codecpar->codec_id );
+        codec =   avcodec_find_decoder( audio_stream->codecpar->codec_id );
         if( NULL == dec )
         {
             fprintf( stderr, "find audio codec fail.\n" );
             return ERROR;
         }
 
-        audio_dec_ctx   =   avcodec_alloc_context3(dec);
-        if( NULL  == audio_dec_ctx )
+        audio_ctx   =   avcodec_alloc_context3(codec);
+        if( NULL  == audio_ctx )
         {
             fprintf( stderr, "allocate audio codec ctx fail.\n" );
             return ERROR;
         }
 
-        ret =   avcodec_parameters_to_context( audio_dec_ctx, audio_stream->codecpar);
+        ret =   avcodec_parameters_to_context( audio_ctx, audio_stream->codecpar);
         if( ret < 0 )
         {
             fprintf( stderr, "copy audio codec parameters to audio decoder ctx fail.\n" );
             return ERROR;
         }
 
-        ret =   avcodec_open2( audio_dec_ctx, dec, NULL );
+        ret =   avcodec_open2( audio_ctx, codec, NULL );
         if( ret < 0 )
         {
             fprintf( stderr, "open audio codec fail\n" );
             return ERROR;
         }
 
-        audio_dec_ctx->pkt_timebase   =   fmt_ctx->streams[audio_index]->time_base;
+        audio_ctx->pkt_timebase   =   fmt_ctx->streams[audio_index]->time_base;
     }
 
     video_index =   av_find_best_stream( fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0 );
@@ -149,36 +123,36 @@ int open_input( char *filename, DecodeData *dec_data )
     else 
     {
         video_stream    =   fmt_ctx->streams[video_index];
-        dec =   avcodec_find_decoder( video_stream->codecpar->codec_id );
-        if( NULL == dec )
+        codec =   avcodec_find_decoder( video_stream->codecpar->codec_id );
+        if( NULL == codec )
         {
             fprintf( stderr, "find audio codec fail.\n" );
             return ERROR;
         }
 
-        video_dec_ctx   =   avcodec_alloc_context3(dec);
-        if( NULL  == video_dec_ctx )
+        video_ctx   =   avcodec_alloc_context3(codec);
+        if( NULL  == video_ctx )
         {
             fprintf( stderr, "allocate audio codec ctx fail.\n" );
             return ERROR;
         }
 
-        ret =   avcodec_parameters_to_context( video_dec_ctx, video_stream->codecpar);
+        ret =   avcodec_parameters_to_context( video_ctx, video_stream->codecpar);
         if( ret < 0 )
         {
             fprintf( stderr, "copy audio codec parameters to audio decoder ctx fail.\n" );
             return ERROR;
         }
 
-        ret =   avcodec_open2( video_dec_ctx, dec, NULL );
+        ret =   avcodec_open2( video_ctx, codec, NULL );
         if( ret < 0 )
         {
             fprintf( stderr, "open audio codec fail\n" );
             return ERROR;
         }
 
-        video_dec_ctx->pkt_timebase   =   fmt_ctx->streams[video_index]->time_base;
-        video_dec_ctx->time_base      =   fmt_ctx->streams[video_index]->r_frame_rate;
+        video_ctx->pkt_timebase   =   fmt_ctx->streams[video_index]->time_base;
+        video_ctx->time_base      =   fmt_ctx->streams[video_index]->r_frame_rate;
     }
 
     av_dump_format( fmt_ctx, 0, filename, 0 );
@@ -198,15 +172,15 @@ int open_input( char *filename, DecodeData *dec_data )
         return ERROR;
     }
 
-    dec_data->fmt_ctx       =   fmt_ctx;
-    dec_data->frame         =   frame;
-    dec_data->pkt           =   pkt;
-    dec_data->video_index   =   video_index;
-    dec_data->audio_index   =   audio_index;
-    dec_data->video_stream  =   video_stream;
-    dec_data->audio_stream  =   audio_stream;
-    dec_data->audio_dec_ctx =   audio_dec_ctx;
-    dec_data->video_dec_ctx =   video_dec_ctx;
+    dec->fmt_ctx       =   fmt_ctx;
+    dec->frame         =   frame;
+    dec->pkt           =   pkt;
+    dec->video_index   =   video_index;
+    dec->audio_index   =   audio_index;
+    dec->video_stream  =   video_stream;
+    dec->audio_stream  =   audio_stream;
+    dec->audio_ctx =   audio_ctx;
+    dec->video_ctx =   video_ctx;
 
     return SUCCESS;
 }
@@ -687,7 +661,7 @@ static void close_stream(AVFormatContext *oc, OutputStream *ost)
 
 
 
-int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
+int open_output( char *filename,  Decode dec, Encode *enc )
 {
     AVFormatContext *fmt_ctx = NULL;
     AVCodecContext  *audio_ctx = NULL, *video_ctx = NULL;
@@ -772,7 +746,7 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
     //video_stream->time_base.num = 1001;
     //video_stream->time_base.den = 24000;
 
-    ret = avcodec_parameters_copy( video_stream->codecpar, dec_data.video_stream->codecpar );
+    ret = avcodec_parameters_copy( video_stream->codecpar, dec.video_stream->codecpar );
 
 
     //video_stream->time_base = (AVRational){ 1, STREAM_FRAME_RATE };
@@ -938,9 +912,9 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
     }
 
     /* set options */
-    av_opt_set_chlayout  (swr_ctx, "in_chlayout",       &dec_data.audio_dec_ctx->ch_layout,      0);
-    av_opt_set_int       (swr_ctx, "in_sample_rate",     dec_data.audio_dec_ctx->sample_rate,    0);
-    av_opt_set_sample_fmt(swr_ctx, "in_sample_fmt",      dec_data.audio_dec_ctx->sample_fmt, 0);
+    av_opt_set_chlayout  (swr_ctx, "in_chlayout",       &dec.audio_ctx->ch_layout,      0);
+    av_opt_set_int       (swr_ctx, "in_sample_rate",     dec.audio_ctx->sample_rate,    0);
+    av_opt_set_sample_fmt(swr_ctx, "in_sample_fmt",      dec.audio_ctx->sample_fmt, 0);
     av_opt_set_chlayout  (swr_ctx, "out_chlayout",      &audio_ctx->ch_layout,      0);
     av_opt_set_int       (swr_ctx, "out_sample_rate",    audio_ctx->sample_rate,    0);
     av_opt_set_sample_fmt(swr_ctx, "out_sample_fmt",     audio_ctx->sample_fmt,     0);
@@ -953,18 +927,18 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
 
 
 
-    enc_data->fmt_ctx = fmt_ctx;
-    enc_data->audio_ctx = audio_ctx;
-    enc_data->video_ctx = dec_data.video_dec_ctx; //  video_ctx;
-    enc_data->audio_stream = audio_stream;
-    enc_data->video_stream = video_stream;
-    enc_data->duration_per_frame = duration_per_frame;
-    enc_data->duration_count = 0;
-    enc_data->pkt = pkt;
-    enc_data->frame = frame;
-    enc_data->swr_ctx = swr_ctx;
+    enc->fmt_ctx = fmt_ctx;
+    enc->audio_ctx = audio_ctx;
+    enc->video_ctx = dec.video_ctx; //  video_ctx;
+    enc->audio_stream = audio_stream;
+    enc->video_stream = video_stream;
+    enc->duration_per_frame = duration_per_frame;
+    enc->duration_count = 0;
+    enc->pkt = pkt;
+    enc->frame = frame;
+    enc->swr_ctx = swr_ctx;
 
-    enc_data->dec_video_stream = dec_data.video_stream;
+    enc->dec_video_stream = dec.video_stream;
 
     return SUCCESS;
 }
@@ -973,23 +947,23 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
 
 
 
-int audio_encode( EncodeData enc_data, AVFrame *audio_frame )
+int audio_encode( Encode enc, AVFrame *audio_frame )
 {
     int ret;
 
 
-    int64_t delay = swr_get_delay(enc_data.swr_ctx, enc_data.audio_ctx->sample_rate);
+    int64_t delay = swr_get_delay( enc.swr_ctx, enc.audio_ctx->sample_rate);
     int dst_nb_samples = av_rescale_rnd( delay + audio_frame->nb_samples,
-                                         enc_data.audio_ctx->sample_rate, enc_data.audio_ctx->sample_rate, AV_ROUND_UP);
+                                         enc.audio_ctx->sample_rate, enc.audio_ctx->sample_rate, AV_ROUND_UP);
     assert(dst_nb_samples == audio_frame->nb_samples);
 
-    ret = av_frame_make_writable(enc_data.frame);
+    /*ret = av_frame_make_writable(enc.frame);
     if (ret < 0)
-        exit(1);
+        exit(1);*/
 
 
-    ret = swr_convert( enc_data.swr_ctx,
-                       enc_data.frame->data, dst_nb_samples,
+    ret = swr_convert( enc.swr_ctx,
+                       enc.frame->data, dst_nb_samples,
                        (const uint8_t **)audio_frame->data, audio_frame->nb_samples);
     if (ret < 0) {
         fprintf(stderr, "Error while converting\n");
@@ -999,7 +973,7 @@ int audio_encode( EncodeData enc_data, AVFrame *audio_frame )
 
     static int sample_count = 0;
 
-    enc_data.frame->pts = av_rescale_q( sample_count, (AVRational){1, enc_data.audio_ctx->sample_rate}, enc_data.audio_stream->time_base);
+    enc.frame->pts = av_rescale_q( sample_count, (AVRational){1, enc.audio_ctx->sample_rate}, enc.audio_stream->time_base);
     sample_count += dst_nb_samples;
 
 
@@ -1011,7 +985,7 @@ int audio_encode( EncodeData enc_data, AVFrame *audio_frame )
 
 
     // send the frame to the encoder
-    ret = avcodec_send_frame( enc_data.audio_ctx, enc_data.frame );
+    ret = avcodec_send_frame( enc.audio_ctx, enc.frame );
 
 
     if (ret < 0) 
@@ -1022,7 +996,7 @@ int audio_encode( EncodeData enc_data, AVFrame *audio_frame )
     }
 
 
-    ret = avcodec_receive_packet( enc_data.audio_ctx, enc_data.pkt );
+    ret = avcodec_receive_packet( enc.audio_ctx, enc.pkt );
     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
         return ret;
     else if (ret < 0) 
@@ -1032,8 +1006,8 @@ int audio_encode( EncodeData enc_data, AVFrame *audio_frame )
     }
     
     /* rescale output packet timestamp values from codec to stream timebase */
-    av_packet_rescale_ts( enc_data.pkt, enc_data.audio_ctx->time_base, enc_data.audio_stream->time_base );
-    enc_data.pkt->stream_index = enc_data.audio_stream->index;
+    av_packet_rescale_ts( enc.pkt, enc.audio_ctx->time_base, enc.audio_stream->time_base );
+    enc.pkt->stream_index = enc.audio_stream->index;
     
     /* Write the compressed frame to the media file. */
     //log_packet(fmt_ctx, pkt);
