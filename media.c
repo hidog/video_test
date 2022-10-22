@@ -723,7 +723,7 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
 
     // video
     /* find the encoder */
-#if 1
+#if 0
     video_codec = avcodec_find_encoder(AV_CODEC_ID_HEVC);
     if ( NULL == video_codec ) 
     {
@@ -787,9 +787,9 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
 
     // open video
     /* copy the stream parameters to the muxer */
-    //video_ctx = avcodec_alloc_context3(video_codec);
+    video_ctx = avcodec_alloc_context3(video_codec);
 
-    //ret     =   avcodec_parameters_to_context( video_ctx, dec_data.video_stream->codecpar );
+    ret     =   avcodec_parameters_to_context( video_ctx, dec_data.video_stream->codecpar );
     ret     =   avcodec_parameters_from_context( video_stream->codecpar, video_ctx );
 
 

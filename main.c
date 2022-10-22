@@ -54,7 +54,9 @@ int main(int argc, char *argv[])
         {
             dec_data.pkt->stream_index = enc_data.video_stream->index;
 
-            AVRational stb = dec_data.video_stream->time_base;
+            //AVRational stb = dec_data.video_stream->time_base;
+            AVRational stb = {1, 900000};
+
             //stb.num = enc_data.video_stream->time_base.den;
             //stb.den = enc_data.video_stream->time_base.num;
 
