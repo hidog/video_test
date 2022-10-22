@@ -8,9 +8,14 @@
 #include <libavformat/avformat.h>
 
 
+
+
+
+
+
 int main(int argc, char *argv[])
 {
-   transcode_aac();
+   //transcode_aac();
 
     int     ret;
     Decode  dec;
@@ -31,7 +36,6 @@ int main(int argc, char *argv[])
         if ( dec.pkt->stream_index == dec.audio_index )
             ret =   audio_decode( &dec );
 
-
         if( dec.pkt->stream_index == dec.audio_index )
         {
             int ret = audio_encode( enc, dec.frame );
@@ -42,9 +46,9 @@ int main(int argc, char *argv[])
             {}
             else
             {
-                av_packet_rescale_ts( enc.pkt, enc.audio_ctx->time_base, enc.audio_stream->time_base);
-                enc.pkt->stream_index = enc.audio_stream->index;
-                int ret2 = av_interleaved_write_frame( enc.fmt_ctx, enc.pkt );
+                //av_packet_rescale_ts( enc.pkt, enc.audio_ctx->time_base, enc.audio_stream->time_base);
+                //enc.pkt->stream_index = enc.audio_stream->index;
+                //int ret2 = av_interleaved_write_frame( enc.fmt_ctx, enc.pkt );
             }
         }
         else

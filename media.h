@@ -7,6 +7,7 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswresample/swresample.h>
+#include <libavutil/audio_fifo.h>
 
 
 #define  SUCCESS  1
@@ -35,6 +36,7 @@ struct Encode_t
    AVPacket    *pkt;
    AVFrame     *frame;
    SwrContext  *swr_ctx;
+   AVAudioFifo *fifo;
 } typedef Encode;
 
 // decode
