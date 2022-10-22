@@ -135,6 +135,8 @@ int open_input( char *filename, DecodeData *dec_data )
             fprintf( stderr, "open audio codec fail\n" );
             return ERROR;
         }
+
+        audio_dec_ctx->pkt_timebase   =   fmt_ctx->streams[audio_index]->time_base;
     }
 
     video_index =   av_find_best_stream( fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0 );
@@ -172,6 +174,9 @@ int open_input( char *filename, DecodeData *dec_data )
             fprintf( stderr, "open audio codec fail\n" );
             return ERROR;
         }
+
+        video_dec_ctx->pkt_timebase   =   fmt_ctx->streams[video_index]->time_base;
+        video_dec_ctx->time_base      =   fmt_ctx->streams[video_index]->r_frame_rate;
     }
 
     av_dump_format( fmt_ctx, 0, filename, 0 );
@@ -701,7 +706,7 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
 
     int i, ret;
 
-
+    int64_t duration_per_frame;
     
     // audio
     /* find the encoder */
@@ -743,7 +748,7 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
 #else
     audio_stream = avformat_new_stream(fmt_ctx, NULL);
     audio_stream->id = fmt_ctx->nb_streams - 1;
-    audio_stream->time_base = (AVRational){ 1, 48000 };
+    audio_stream->time_base = dec_data.audio_dec_ctx->time_base; //(AVRational){ 1, 48000 };
 #endif
 
 
@@ -820,7 +825,11 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
 #else
     video_stream = avformat_new_stream( fmt_ctx, NULL);
     video_stream->id = fmt_ctx->nb_streams-1;
-    video_stream->time_base = (AVRational){ 1001, 24000 };
+    //video_stream->time_base.num = dec_data.video_stream->r_frame_rate.den; // (AVRational){ 1001, 24000 };
+    //video_stream->time_base.den = dec_data.video_stream->r_frame_rate.num; // (AVRational){ 1001, 24000 };
+
+    duration_per_frame  =  av_rescale( AV_TIME_BASE, dec_data.video_stream->r_frame_rate.den, dec_data.video_stream->r_frame_rate.num );
+
 #endif
 
 
@@ -828,6 +837,11 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
     // open video
     /* copy the stream parameters to the muxer */
     ret = avcodec_parameters_from_context( video_stream->codecpar, dec_data.video_dec_ctx );
+    //ret     =   avcodec_parameters_to_context( video_ctx, dec_data.video_stream->codecpar );
+    video_stream->time_base.den     =   dec_data.video_dec_ctx->time_base.num; 
+    video_stream->time_base.num     =   dec_data.video_dec_ctx->time_base.den; 
+
+
     if (ret < 0) {
         fprintf(stderr, "Could not copy the stream parameters\n");
         exit(1);
@@ -874,6 +888,8 @@ int open_output( char *filename,  DecodeData dec_data, EncodeData *enc_data )
     enc_data->video_ctx = dec_data.video_dec_ctx; //  video_ctx;
     enc_data->audio_stream = audio_stream;
     enc_data->video_stream = video_stream;
+    enc_data->duration_per_frame = duration_per_frame;
+    enc_data->duration_count = 0;
 
     return SUCCESS;
 }

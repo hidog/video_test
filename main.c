@@ -10,6 +10,7 @@
 
 int main(int argc, char *argv[])
 {
+    //encode_example();
 
     int     ret;
     DecodeData  dec_data;
@@ -40,11 +41,22 @@ int main(int argc, char *argv[])
         }
         else
         {
-            AVRational r;
-            r.den = 1001;
-            r.num = 24000; //{ 1001, 24000 };
-            av_packet_rescale_ts( dec_data.pkt, r, r );
             dec_data.pkt->stream_index = enc_data.video_stream->index;
+
+            //AVRational stb = enc_data.video_stream->time_base;
+
+            AVRational r = { 1001, 48000 };
+
+            dec_data.pkt->pts    =   1.0 / AV_TIME_BASE * enc_data.duration_count * 48000 / 1001;
+	        dec_data.pkt->dts    =   dec_data.pkt->pts;
+
+            AVRational  realtime_duration = { enc_data.duration_per_frame, AV_TIME_BASE };
+            AVRational  duration     =   av_div_q( realtime_duration, r );
+            dec_data.pkt->duration   =   av_q2d(duration);
+
+            enc_data.duration_count  +=  enc_data.duration_per_frame;
+
+            av_packet_rescale_ts( dec_data.pkt, dec_data.video_dec_ctx->time_base, r );
         }
 
 

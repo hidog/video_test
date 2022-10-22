@@ -37,6 +37,8 @@ struct EncodeData_t
     AVCodecContext *video_ctx;
     AVStream *audio_stream;
     AVStream *video_stream;
+    int64_t     duration_per_frame;
+    int64_t     duration_count;
 } typedef EncodeData;
 
 
