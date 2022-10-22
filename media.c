@@ -446,7 +446,7 @@ int audio_encode( Encode enc, AVFrame *audio_frame )
        static int sample_count = 0;
 
        enc.frame->pts = av_rescale_q( sample_count, (AVRational){1, enc.audio_ctx->sample_rate}, enc.audio_stream->time_base);
-       sample_count += dst_nb_samples;
+       sample_count +=  enc.frame->nb_samples; //dst_nb_samples;
 
 
        // send the frame to the encoder

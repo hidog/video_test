@@ -16,6 +16,7 @@
 int main(int argc, char *argv[])
 {
    //transcode_aac();
+   //return 0;
 
     int     ret;
     Decode  dec;
@@ -38,6 +39,8 @@ int main(int argc, char *argv[])
 
         if( dec.pkt->stream_index == dec.audio_index )
         {
+           // 明天改寫這邊, 讓程式變得好看. 
+
             int ret = audio_encode( enc, dec.frame );
 
             av_frame_unref(dec.frame);
