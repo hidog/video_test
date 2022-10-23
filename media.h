@@ -36,8 +36,18 @@ struct Encode_t
    AVPacket    *pkt;
    AVFrame     *frame;
    SwrContext  *swr_ctx;
-   AVAudioFifo *fifo;
+   int   sample_count;
 } typedef Encode;
+
+
+struct FifoBuffer_t
+{
+   AVAudioFifo *fifo;
+   uint8_t  **tmp_buffer;
+   int   input_nb_samples;
+   int   output_nb_samples;
+} typedef FifoBuffer;
+
 
 // decode
 int open_input( char *filename, Decode *dec );
@@ -45,10 +55,13 @@ int audio_decode( Decode *dec );
 
 // encode
 int open_output( char *filename, Decode dec, Encode *enc );
-int audio_encode( Encode enc, AVFrame *audio_frame );
+int audio_encode( Encode *enc );
+
 AVFrame *alloc_audio_frame(enum AVSampleFormat sample_fmt, const AVChannelLayout *channel_layout, int sample_rate, int nb_samples );
 
-
-
+// fifo
+int init_fifo( Decode dec, Encode enc, FifoBuffer *fifobuf );
+int push_audio_frame(  Encode enc, FifoBuffer fifobuf, AVFrame *dec_audio_frame );
+int pop_audio_frame( Encode enc, FifoBuffer fifobuf );
 
 #endif

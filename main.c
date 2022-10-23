@@ -31,27 +31,31 @@ int main(int argc, char *argv[])
     Encode enc;
     open_output( "D:\\code\\output.mp4", dec, &enc );
 
+    FifoBuffer fifobuf;
+    init_fifo( dec, enc, &fifobuf );
+
 
     while( av_read_frame( dec.fmt_ctx, dec.pkt ) >= 0 )
     {
         if ( dec.pkt->stream_index == dec.audio_index )
-            ret =   audio_decode( &dec );
-
-        if( dec.pkt->stream_index == dec.audio_index )
         {
-           // 明天改寫這邊, 讓程式變得好看. 
-
-            int ret = audio_encode( enc, dec.frame );
-
+            ret =   audio_decode( &dec );
+            push_audio_frame( enc, fifobuf, dec.frame );
             av_frame_unref(dec.frame);
 
-            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-            {}
-            else
+            while ( av_audio_fifo_size(fifobuf.fifo) >= fifobuf.output_nb_samples )
             {
-                //av_packet_rescale_ts( enc.pkt, enc.audio_ctx->time_base, enc.audio_stream->time_base);
-                //enc.pkt->stream_index = enc.audio_stream->index;
-                //int ret2 = av_interleaved_write_frame( enc.fmt_ctx, enc.pkt );
+               pop_audio_frame( enc, fifobuf );
+               ret = audio_encode( &enc );
+
+               if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+               {}
+               else
+               {
+                   av_packet_rescale_ts( enc.pkt, enc.audio_ctx->time_base, enc.audio_stream->time_base);
+                   enc.pkt->stream_index = enc.audio_stream->index;
+                   int ret2 = av_interleaved_write_frame( enc.fmt_ctx, enc.pkt );
+               }
             }
         }
         else

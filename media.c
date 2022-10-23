@@ -303,7 +303,9 @@ int open_output( char *filename,  Decode dec, Encode *enc )
     AVFrame *frame = NULL;
     //audio_ctx->frame_size
     frame = alloc_audio_frame( audio_ctx->sample_fmt, &audio_ctx->ch_layout, audio_ctx->sample_rate, audio_ctx->frame_size);
-
+    ret = av_frame_make_writable(frame);
+    if (ret < 0)
+        exit(1);
 
 
     /* create resampler context */
@@ -330,11 +332,87 @@ int open_output( char *filename,  Decode dec, Encode *enc )
 
 
 
+    enc->fmt_ctx = fmt_ctx;
+    enc->audio_ctx = audio_ctx;
+    enc->audio_stream = audio_stream;
+    enc->video_stream = video_stream;
+    enc->pkt = pkt;
+    enc->frame = frame;
+    enc->swr_ctx = swr_ctx;
+    enc->sample_count = 0;
+
+    return SUCCESS;
+}
+
+
+
+
+
+int audio_encode( Encode *enc )
+{
+    int ret;
+
+
+    /*int64_t delay = swr_get_delay( enc.swr_ctx, enc.audio_ctx->sample_rate);
+    int dst_nb_samples = av_rescale_rnd( delay + audio_frame->nb_samples,
+                                         enc.audio_ctx->sample_rate, enc.audio_ctx->sample_rate, AV_ROUND_UP);
+    assert(dst_nb_samples == audio_frame->nb_samples);*/
+
+
+
+
+   
+   enc->frame->pts = av_rescale_q( enc->sample_count, (AVRational){1, enc->audio_ctx->sample_rate}, enc->audio_stream->time_base);
+   enc->sample_count +=  enc->frame->nb_samples; 
+   
+   
+   // send the frame to the encoder
+   ret = avcodec_send_frame( enc->audio_ctx, enc->frame );
+   
+   
+   if (ret < 0) 
+   {
+       fprintf(stderr, "Error sending a frame to the encoder: %s\n",
+               av_err2str(ret));
+       return -1;
+   }
+   
+   ret = avcodec_receive_packet( enc->audio_ctx, enc->pkt );
+   if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+       return ret;
+   else if (ret < 0) 
+   {
+       fprintf(stderr, "Error encoding a frame: %s\n", av_err2str(ret));
+       exit(1);
+   }
+   
+   /* rescale output packet timestamp values from codec to stream timebase */
+   //av_packet_rescale_ts( enc.pkt, enc.audio_ctx->time_base, enc.audio_stream->time_base );
+   //enc.pkt->stream_index = enc.audio_stream->index;
+   
+   
+   //av_packet_rescale_ts( enc.pkt, enc.audio_ctx->time_base, enc.audio_stream->time_base);
+   //enc.pkt->stream_index = enc.audio_stream->index;
+   //int ret2 = av_interleaved_write_frame( enc.fmt_ctx, enc.pkt );
+
+
+
+
+    
+    return ret;
+}
+
+
+
+int init_fifo( Decode dec, Encode enc, FifoBuffer *fifobuf )
+{
+    int input_nb_samples = dec.audio_ctx->frame_size;
+    int output_nb_samples = enc.audio_ctx->frame_size;
 
     AVAudioFifo *fifo = NULL;
-    /* Create the FIFO buffer based on the specified output sample format. */
 
-    fifo = av_audio_fifo_alloc( audio_ctx->sample_fmt, audio_ctx->ch_layout.nb_channels, audio_ctx->frame_size );
+    int frame_size = FFMAX( input_nb_samples, output_nb_samples );
+    fifo = av_audio_fifo_alloc( enc.audio_ctx->sample_fmt, enc.audio_ctx->ch_layout.nb_channels, frame_size );
 
     if ( NULL == fifo ) 
     {
@@ -345,152 +423,76 @@ int open_output( char *filename,  Decode dec, Encode *enc )
 
 
 
+    uint8_t **tmp_buffer = calloc( enc.audio_ctx->ch_layout.nb_channels, sizeof(uint8_t*) );
+    av_samples_alloc( tmp_buffer, NULL, enc.audio_ctx->ch_layout.nb_channels, input_nb_samples, enc.audio_ctx->sample_fmt, 0 );
 
 
+    fifobuf->fifo = fifo;
+    fifobuf->tmp_buffer = tmp_buffer;
+    fifobuf->input_nb_samples = input_nb_samples;
+    fifobuf->output_nb_samples = output_nb_samples;
 
-
-    enc->fmt_ctx = fmt_ctx;
-    enc->audio_ctx = audio_ctx;
-    enc->audio_stream = audio_stream;
-    enc->video_stream = video_stream;
-    enc->pkt = pkt;
-    enc->frame = frame;
-    enc->swr_ctx = swr_ctx;
-    enc->fifo = fifo;
 
     return SUCCESS;
 }
 
 
 
-
-
-int audio_encode( Encode enc, AVFrame *audio_frame )
+int push_audio_frame( Encode enc, FifoBuffer fifobuf,  AVFrame *dec_audio_frame )
 {
-    int ret;
-
-
-    int64_t delay = swr_get_delay( enc.swr_ctx, enc.audio_ctx->sample_rate);
-    int dst_nb_samples = av_rescale_rnd( delay + audio_frame->nb_samples,
-                                         enc.audio_ctx->sample_rate, enc.audio_ctx->sample_rate, AV_ROUND_UP);
-    assert(dst_nb_samples == audio_frame->nb_samples);
-
-    ret = av_frame_make_writable(enc.frame);
-    if (ret < 0)
-        exit(1);
-
-
-
-    uint8_t **tmp_sample = calloc( enc.audio_ctx->ch_layout.nb_channels, sizeof(uint8_t*) );
-    av_samples_alloc( tmp_sample, NULL, enc.audio_ctx->ch_layout.nb_channels, audio_frame->nb_samples, enc.audio_ctx->sample_fmt, 0);
-
-
-
-    ret = swr_convert( enc.swr_ctx,
-                       tmp_sample, audio_frame->nb_samples, //dst_nb_samples,
-                       (const uint8_t **)audio_frame->data, audio_frame->nb_samples );
-    if (ret < 0) {
+   
+    int ret = swr_convert( enc.swr_ctx,
+                       fifobuf.tmp_buffer, fifobuf.input_nb_samples,
+                       (const uint8_t **)dec_audio_frame->data, fifobuf.input_nb_samples );
+    if (ret < 0) 
+    {
         fprintf(stderr, "Error while converting\n");
         exit(1);
     }
     //frame = ost->frame;
 
 
-
-
-    
     /* Make the FIFO as large as it needs to be to hold both,
      * the old and the new samples. */
 
-    int fifo_size = av_audio_fifo_size(enc.fifo);
-    int error = av_audio_fifo_realloc( enc.fifo, fifo_size + enc.audio_ctx->frame_size );
+    //int fifo_size = av_audio_fifo_size(enc.fifo);
+    //int error = av_audio_fifo_realloc( enc.fifo, fifo_size + enc.audio_ctx->frame_size );
 
-    if ( error < 0) 
+    /*if ( error < 0) 
     {
         fprintf(stderr, "Could not reallocate FIFO\n");
         return error;
-    }
+    }*/
 
 
 
     /* Store the new samples in the FIFO buffer. */
-    int writed_size = av_audio_fifo_write( enc.fifo, (void **)tmp_sample , audio_frame->nb_samples );
-    if ( writed_size < enc.audio_ctx->frame_size) 
+    int write_size = av_audio_fifo_write( fifobuf.fifo, (void **)fifobuf.tmp_buffer , fifobuf.input_nb_samples );
+    if ( write_size < fifobuf.input_nb_samples ) 
     {
         fprintf(stderr, "Could not write data to FIFO\n");
         return AVERROR_EXIT;
     }
 
-    av_freep( &tmp_sample[0] );
+    //av_freep( &tmp_sample[0] );
     
-    
-
-
-    while ( av_audio_fifo_size(enc.fifo) >= enc.audio_ctx->frame_size )
-    {
-       const int frame_size = FFMIN(av_audio_fifo_size(enc.fifo), enc.audio_ctx->frame_size);
-       int data_written;
-
-       /* Read as many samples from the FIFO buffer as required to fill the frame.
-        * The samples are stored in the frame temporarily. */
-       int read_size = av_audio_fifo_read( enc.fifo, (void **)enc.frame->data, frame_size);
-       if ( read_size < frame_size) 
-       {
-           fprintf(stderr, "Could not read data from FIFO\n");
-           return AVERROR_EXIT;
-       }
-
-
-
-
-       static int sample_count = 0;
-
-       enc.frame->pts = av_rescale_q( sample_count, (AVRational){1, enc.audio_ctx->sample_rate}, enc.audio_stream->time_base);
-       sample_count +=  enc.frame->nb_samples; //dst_nb_samples;
-
-
-       // send the frame to the encoder
-       ret = avcodec_send_frame( enc.audio_ctx, enc.frame );
-
-
-       if (ret < 0) 
-       {
-           fprintf(stderr, "Error sending a frame to the encoder: %s\n",
-                   av_err2str(ret));
-           //exit(1);
-       }
-
-       ret = avcodec_receive_packet( enc.audio_ctx, enc.pkt );
-       if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-           return ret;
-       else if (ret < 0) 
-       {
-           fprintf(stderr, "Error encoding a frame: %s\n", av_err2str(ret));
-           exit(1);
-       }
-    
-       /* rescale output packet timestamp values from codec to stream timebase */
-       av_packet_rescale_ts( enc.pkt, enc.audio_ctx->time_base, enc.audio_stream->time_base );
-       enc.pkt->stream_index = enc.audio_stream->index;
-    
-
-       //av_packet_rescale_ts( enc.pkt, enc.audio_ctx->time_base, enc.audio_stream->time_base);
-       //enc.pkt->stream_index = enc.audio_stream->index;
-       int ret2 = av_interleaved_write_frame( enc.fmt_ctx, enc.pkt );
-
-    }
-
-
-
-
-
-
-
-
-
-
-
-    
-    return ret;
+    return 0;
 }
 
+
+int pop_audio_frame( Encode enc, FifoBuffer fifobuf )
+{
+   //const int frame_size = FFMIN(av_audio_fifo_size(enc.fifo), enc.audio_ctx->frame_size);
+   //int data_written;
+   
+   /* Read as many samples from the FIFO buffer as required to fill the frame.
+    * The samples are stored in the frame temporarily. */
+   int read_size = av_audio_fifo_read( fifobuf.fifo, (void **)enc.frame->data, fifobuf.output_nb_samples );
+   if ( read_size < fifobuf.output_nb_samples ) 
+   {
+       fprintf(stderr, "Could not read data from FIFO\n");
+       return AVERROR_EXIT;
+   }
+
+   return SUCCESS;
+}
