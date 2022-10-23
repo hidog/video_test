@@ -10,12 +10,12 @@ set( DEFINE ${DEFINE} -DUNIX )
 add_definitions( ${DEFINE} )
 
 # include path 
-#set( INCLUDE_PATH ${CMAKE_SOURCE_DIR}/ffmpeg/include )
-#include_directories( ${INCLUDE_PATH} )
+set( INCLUDE_PATH ${CMAKE_SOURCE_DIR}/ffmpeg/include )
+include_directories( ${INCLUDE_PATH} )
 
 # library path
-#set( LIB_PATH ${CMAKE_SOURCE_DIR}/ffmpeg/lib/ )
-#link_directories( ${LIB_PATH} )
+set( LIB_PATH ${CMAKE_SOURCE_DIR}/ffmpeg/lib/ )
+link_directories( ${LIB_PATH} )
 
 set(ENV{PKG_CONFIG_PATH} ./ffmpeg/lib/pkgconfig)
 find_package(PkgConfig)
