@@ -15,68 +15,74 @@
 
 int main(int argc, char *argv[])
 {
-   //transcode_aac();
-   //return 0;
-
-    int     ret;
-    Decode  dec;
-
-    ret =   open_input( "D:\\code\\input.mp4", &dec );
-    if( ret < 0 )
-    {
-        fprintf( stderr, "open input fail.\n" );
-        return 0;
-    }
-
-    Encode enc;
-    open_output( "D:\\code\\output.mp4", dec, &enc );
-
-    FifoBuffer fifobuf;
-    init_fifo( dec, enc, &fifobuf );
-
-
-    while( av_read_frame( dec.fmt_ctx, dec.pkt ) >= 0 )
-    {
-        if ( dec.pkt->stream_index == dec.audio_index )
-        {
-            ret =   audio_decode( &dec );
+   int      ret,  ret2;
+   Decode   dec;
+   
+   ret   =  open_input( "D:\\code\\input.mp4", &dec );
+   if( ret < 0 )
+   {
+      fprintf( stderr, "open input fail at line %d.\n", -ret );
+      exit(0);
+   }
+   
+   Encode   enc;
+   ret   =  open_output( "D:\\code\\output.mp4", dec, &enc );
+   if( ret < 0 )
+   {
+      fprintf( stderr, "open output fail at line %d.\n", -ret );
+      exit(0);
+   }
+   
+   FifoBuffer  fifobuf;
+   ret   =  init_fifo( dec, enc, &fifobuf );
+   if( ret < 0 )
+   {
+      fprintf( stderr, "open fifo fail at line %d.\n", -ret );
+      exit(0);
+   }   
+   
+   while( av_read_frame( dec.fmt_ctx, dec.pkt ) >= 0 )
+   {
+      // audio
+      if( dec.pkt->stream_index == dec.audio_index )
+      {
+         ret   =  audio_decode( &dec );
+         if( ret == SUCCESS )
+         {
             push_audio_frame( enc, fifobuf, dec.frame );
             av_frame_unref(dec.frame);
-
-            while ( av_audio_fifo_size(fifobuf.fifo) >= fifobuf.output_nb_samples )
+            
+            while( av_audio_fifo_size(fifobuf.fifo) >= fifobuf.output_nb_samples )
             {
                pop_audio_frame( enc, fifobuf );
-               ret = audio_encode( &enc );
-
-               if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-               {}
-               else
+               ret2  =  audio_encode( &enc );
+               if( ret2 == SUCCESS )
                {
-                   av_packet_rescale_ts( enc.pkt, enc.audio_ctx->time_base, enc.audio_stream->time_base);
-                   enc.pkt->stream_index = enc.audio_stream->index;
-                   int ret2 = av_interleaved_write_frame( enc.fmt_ctx, enc.pkt );
+                  av_packet_rescale_ts( enc.pkt, enc.audio_ctx->time_base, enc.audio_stream->time_base );
+                  enc.pkt->stream_index   =  enc.audio_stream->index;
+                  av_interleaved_write_frame( enc.fmt_ctx, enc.pkt );
                }
             }
-        }
-        else
-        {
-            dec.pkt->stream_index = enc.video_stream->index;
-            av_packet_rescale_ts( dec.pkt, dec.video_stream->time_base, enc.video_stream->time_base  );
-            int ret2 = av_interleaved_write_frame( enc.fmt_ctx, dec.pkt );
-        }
+         }
+      }
+      // video
+      else
+      {
+         dec.pkt->stream_index   =  enc.video_stream->index;
+         av_packet_rescale_ts( dec.pkt, dec.video_stream->time_base, enc.video_stream->time_base );
+         av_interleaved_write_frame( enc.fmt_ctx, dec.pkt );
+      }
 
-        av_packet_unref( dec.pkt );
-        if (ret < 0)
-            break;
-    }
-
-    // flush
-    // decode_packet( &dec_data );
-
-    printf("Demuxing succeeded.\n");
-
-
-    av_write_trailer( enc.fmt_ctx );
+      av_packet_unref( dec.pkt );
+   }
+   
+   // flush
+   // decode_packet( &dec_data );
+   
+   printf("Demuxing succeeded.\n");
+   
+   
+   av_write_trailer( enc.fmt_ctx );
 
 
 #if 0

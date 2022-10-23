@@ -10,8 +10,9 @@
 #include <libavutil/audio_fifo.h>
 
 
-#define  SUCCESS  1
-#define  ERROR    -1
+#define  SUCCESS     1
+#define  ERROR       -(__LINE__)
+#define  NO_FRAME    0
 
 
 struct Decode_t
@@ -56,8 +57,6 @@ int audio_decode( Decode *dec );
 // encode
 int open_output( char *filename, Decode dec, Encode *enc );
 int audio_encode( Encode *enc );
-
-AVFrame *alloc_audio_frame(enum AVSampleFormat sample_fmt, const AVChannelLayout *channel_layout, int sample_rate, int nb_samples );
 
 // fifo
 int init_fifo( Decode dec, Encode enc, FifoBuffer *fifobuf );
