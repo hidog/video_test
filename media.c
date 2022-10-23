@@ -296,3 +296,84 @@ int pop_audio_frame( Encode enc, FifoBuffer fifobuf )
       return ERROR;
    return SUCCESS;
 }
+
+
+int   write_audio_frame( Decode dec, Encode *enc, FifoBuffer fifobuf )
+{
+   int   ret;
+
+   push_audio_frame( *enc, fifobuf, dec.frame );
+   av_frame_unref(dec.frame);
+   
+   while( av_audio_fifo_size(fifobuf.fifo) >= fifobuf.output_nb_samples )
+   {
+      pop_audio_frame( *enc, fifobuf );
+      ret   =  audio_encode( enc );
+      if( ret == SUCCESS )
+      {
+         av_packet_rescale_ts( enc->pkt, enc->audio_ctx->time_base, enc->audio_stream->time_base );
+         enc->pkt->stream_index   =  enc->audio_stream->index;
+         av_interleaved_write_frame( enc->fmt_ctx, enc->pkt );
+      }
+   }
+}
+
+
+int   flush_audio( Decode dec, Encode *enc, FifoBuffer fifobuf )
+{
+   // flush audio decode.
+   int   ret   =  avcodec_send_packet( dec.audio_ctx, NULL );
+   if( ret < 0 )
+      return ERROR;
+
+   while( ret >= 0 )
+   {
+      ret   =  avcodec_receive_frame( dec.audio_ctx, dec.frame );
+      if( ret >= 0 )
+         write_audio_frame( dec, &enc, fifobuf );
+      else
+         break;
+   }
+
+   // flush fifo buffer
+   int      sample      =  av_audio_fifo_size(fifobuf.fifo);
+   AVFrame  *frame      =  av_frame_alloc();
+   frame->nb_samples    =  sample;
+   frame->format        =  enc->audio_ctx->sample_fmt;
+   frame->sample_rate   =  enc->audio_ctx->sample_rate;
+   av_channel_layout_copy( &frame->ch_layout, &enc->audio_ctx->ch_layout );
+   av_frame_get_buffer( frame, 0 );
+
+   ret   =  av_audio_fifo_read( fifobuf.fifo, (void **)frame->data, sample );
+   if( ret < sample )
+      return ERROR;
+
+   frame->pts   =  av_rescale_q( enc->sample_count, (AVRational){1, enc->audio_ctx->sample_rate}, enc->audio_stream->time_base );
+   enc->sample_count += sample; 
+
+   ret   =  avcodec_send_frame( enc->audio_ctx, frame );
+   if( ret < 0 )
+      return ERROR;  
+   ret   =  avcodec_receive_packet( enc->audio_ctx, enc->pkt );
+   if( ret >= 0 )
+   {
+      av_packet_rescale_ts( enc->pkt, enc->audio_ctx->time_base, enc->audio_stream->time_base );
+      enc->pkt->stream_index   =  enc->audio_stream->index;
+      av_interleaved_write_frame( enc->fmt_ctx, enc->pkt );
+   }
+   av_frame_free(frame);
+
+   // flush audio encoder.
+   ret   =  avcodec_send_frame( enc->audio_ctx, NULL );
+   if( ret < 0 )
+      return ERROR;
+   while( ret >= 0 )
+   {
+      ret   =  avcodec_receive_packet( enc->audio_ctx, enc->pkt );
+      if( ret < 0 )
+         break;
+      av_packet_rescale_ts( enc->pkt, enc->audio_ctx->time_base, enc->audio_stream->time_base );
+      enc->pkt->stream_index   =  enc->audio_stream->index;
+      av_interleaved_write_frame( enc->fmt_ctx, enc->pkt );
+   }
+}

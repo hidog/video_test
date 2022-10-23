@@ -51,12 +51,14 @@ struct FifoBuffer_t
 
 
 // decode
-int open_input( char *filename, Decode *dec );
-int audio_decode( Decode *dec );
+int   open_input( char *filename, Decode *dec );
+int   audio_decode( Decode *dec );
 
 // encode
-int open_output( char *filename, Decode dec, Encode *enc );
-int audio_encode( Encode *enc );
+int   open_output( char *filename, Decode dec, Encode *enc );
+int   audio_encode( Encode *enc );
+int   write_audio_frame( Decode dec, Encode *enc, FifoBuffer fifobuf );
+int   flush_audio( Decode dec, Encode *enc, FifoBuffer fifobuf );
 
 // fifo
 int init_fifo( Decode dec, Encode enc, FifoBuffer *fifobuf );

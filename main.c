@@ -8,13 +8,11 @@
 #include <libavformat/avformat.h>
 
 
-
-
-
-
-
 int main(int argc, char *argv[])
 {
+   //transcode_aac();
+   //encode_example();
+
    int      ret,  ret2;
    Decode   dec;
    
@@ -48,22 +46,7 @@ int main(int argc, char *argv[])
       {
          ret   =  audio_decode( &dec );
          if( ret == SUCCESS )
-         {
-            push_audio_frame( enc, fifobuf, dec.frame );
-            av_frame_unref(dec.frame);
-            
-            while( av_audio_fifo_size(fifobuf.fifo) >= fifobuf.output_nb_samples )
-            {
-               pop_audio_frame( enc, fifobuf );
-               ret2  =  audio_encode( &enc );
-               if( ret2 == SUCCESS )
-               {
-                  av_packet_rescale_ts( enc.pkt, enc.audio_ctx->time_base, enc.audio_stream->time_base );
-                  enc.pkt->stream_index   =  enc.audio_stream->index;
-                  av_interleaved_write_frame( enc.fmt_ctx, enc.pkt );
-               }
-            }
-         }
+            write_audio_frame( dec, &enc, fifobuf );
       }
       // video
       else
@@ -76,13 +59,13 @@ int main(int argc, char *argv[])
       av_packet_unref( dec.pkt );
    }
    
-   // flush
-   // decode_packet( &dec_data );
-   
-   printf("Demuxing succeeded.\n");
-   
-   
+   // flush audio
+   flush_audio( dec, &enc, fifobuf );
    av_write_trailer( enc.fmt_ctx );
+
+
+
+   printf("finish.\n");
 
 
 #if 0
