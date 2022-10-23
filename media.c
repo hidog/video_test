@@ -109,6 +109,18 @@ int   open_input( char *filename, Decode *dec )
 }
 
 
+int   close_decode( Decode *dec )
+{
+   avcodec_free_context(&dec->audio_ctx);
+   avformat_close_input(&dec->fmt_ctx);
+   av_packet_free(&dec->pkt);
+   av_frame_free(&dec->frame);
+   dec->video_index  =  -1;
+   dec->audio_index  =  -1;
+}
+
+
+
 int open_output( char *filename,  Decode dec, Encode *enc )
 {
    AVFormatContext   *fmt_ctx    =  NULL;
@@ -166,8 +178,8 @@ int open_output( char *filename,  Decode dec, Encode *enc )
 
    av_dump_format( fmt_ctx, 0, filename, 1 );
    
-   const AVOutputFormat *fmt = fmt_ctx->oformat;  
-   if( !(fmt->flags & AVFMT_NOFILE) ) 
+   const AVOutputFormat *ofmt  =  fmt_ctx->oformat;  
+   if( !(ofmt->flags & AVFMT_NOFILE) ) 
    {
       if( avio_open( &fmt_ctx->pb, filename, AVIO_FLAG_WRITE) < 0 ) 
          return ERROR;       
@@ -212,15 +224,16 @@ int open_output( char *filename,  Decode dec, Encode *enc )
    if( swr_init(swr_ctx) < 0 )
       return ERROR;  
    
-   enc->fmt_ctx = fmt_ctx;
-   enc->audio_ctx = audio_ctx;
-   enc->audio_stream = audio_stream;
-   enc->video_stream = video_stream;
-   enc->pkt = pkt;
-   enc->frame = frame;
-   enc->swr_ctx = swr_ctx;
-   enc->sample_count = 0;
-   
+   enc->fmt_ctx   =  fmt_ctx;
+   enc->audio_ctx =  audio_ctx;
+   enc->swr_ctx   =  swr_ctx;
+   enc->audio_stream =  audio_stream;
+   enc->video_stream =  video_stream;
+   enc->sample_count =  0;
+   enc->frame  =  frame;
+   enc->ofmt   =  ofmt;
+   enc->pkt =  pkt;
+
    return SUCCESS;
 }
 
@@ -376,4 +389,30 @@ int   flush_audio( Decode dec, Encode *enc, FifoBuffer fifobuf )
       enc->pkt->stream_index   =  enc->audio_stream->index;
       av_interleaved_write_frame( enc->fmt_ctx, enc->pkt );
    }
+}
+
+
+int   close_encode( Encode *enc )
+{
+   avcodec_free_context(&enc->audio_ctx);
+   av_frame_free(&enc->frame);
+   av_packet_free(&enc->pkt);
+   swr_free(&enc->swr_ctx);   
+   if( !(enc->ofmt->flags & AVFMT_NOFILE) )
+      avio_closep(&enc->fmt_ctx->pb);
+   avformat_free_context(enc->fmt_ctx);
+   enc->fmt_ctx   =  NULL;
+   enc->sample_count =  0;
+}
+
+
+int   close_fifo( FifoBuffer *fifobuf )
+{
+   av_audio_fifo_free(fifobuf->fifo);
+   fifobuf->fifo  =  NULL;
+   av_freep(&fifobuf->tmp_buffer[0]);
+   free(fifobuf->tmp_buffer);
+   fifobuf->tmp_buffer  =  NULL;
+   fifobuf->input_nb_samples  =  0;
+   fifobuf->output_nb_samples =  0;
 }
