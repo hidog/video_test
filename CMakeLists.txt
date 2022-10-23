@@ -28,7 +28,7 @@ link_directories(${AVFORMAT_LIBRARY_DIRS} ${AVUTIL_LIBRARY_DIRS})
 
 # source 
 set( SOURCE main.c 
-			media.c )
+            media.c )
 
 # head
 set( HEAD media.h )
