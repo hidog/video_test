@@ -13,7 +13,7 @@ void  convert_aac_to_opus()
    int      ret,  ret2;
    Decode   dec;
    
-   ret   =  open_input( "D:\\code\\input.mp4", &dec );
+   ret   =  open_input( "/home/hidog/code/video_test/input.mp4", &dec );
    if( ret < 0 )
    {
       fprintf( stderr, "open input fail at line %d.\n", -ret );
@@ -21,7 +21,7 @@ void  convert_aac_to_opus()
    }
    
    Encode   enc;
-   ret   =  open_output( "D:\\code\\output.mp4", dec, &enc );
+   ret   =  open_output( "/home/hidog/code/video_test/output.mp4", dec, &enc );
    if( ret < 0 )
    {
       fprintf( stderr, "open output fail at line %d.\n", -ret );
