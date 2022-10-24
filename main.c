@@ -79,7 +79,7 @@ void  merge_g711_to_opus()
    int      ret,  ret2;
    Decode   video_dec, audio_dec;
    
-   ret   =  open_video_input( "D:\\code\\input2.mp4", &video_dec );
+   ret   =  open_video_input( "/home/hidog/code/video_test/input2.mp4", &video_dec );
    if( ret < 0 )
    {
       fprintf( stderr, "open input fail at line %d.\n", -ret );
@@ -89,7 +89,7 @@ void  merge_g711_to_opus()
    //ret   =  open_g711_input( "D:\\code\\input.g711a", &audio_dec, AV_CODEC_ID_PCM_ALAW, 2, 48000 );
    //ret   =  open_g711_input( "D:\\code\\input.g711a", &audio_dec, AV_CODEC_ID_PCM_ALAW, 1, 8000 );
    //ret   =  open_g711_input( "D:\\code\\input.g711u", &audio_dec, AV_CODEC_ID_PCM_MULAW, 2, 48000 );
-   ret   =  open_g711_input( "D:\\code\\input.g711u", &audio_dec, AV_CODEC_ID_PCM_MULAW, 1, 8000 );
+   ret   =  open_g711_input( "/home/hidog/code/video_test/input.g711u", &audio_dec, AV_CODEC_ID_PCM_MULAW, 1, 8000 );
    if( ret < 0 )
    {
       fprintf( stderr, "open input fail at line %d.\n", -ret );
@@ -97,7 +97,7 @@ void  merge_g711_to_opus()
    }
 
    Encode   enc;
-   ret   =  open_merge_output( "D:\\code\\output.mp4", video_dec, audio_dec, &enc );
+   ret   =  open_merge_output( "/home/hidog/code/video_test/output.mp4", video_dec, audio_dec, &enc );
    if( ret < 0 )
    {
       fprintf( stderr, "open output fail at line %d.\n", -ret );
@@ -164,5 +164,5 @@ int main(int argc, char *argv[])
 
    //merge_g711_to_opus();
 
-	return 0;
+   return 0;
 }
