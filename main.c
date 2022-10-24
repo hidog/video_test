@@ -160,9 +160,9 @@ void  merge_g711_to_opus()
 
 int main(int argc, char *argv[])
 {
-   //convert_aac_to_opus();
+   convert_aac_to_opus();
 
-   merge_g711_to_opus();
+   //merge_g711_to_opus();
 
 	return 0;
 }
