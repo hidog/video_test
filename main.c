@@ -18,7 +18,7 @@ void  convert_aac_to_opus()
    int      ret,  ret2;
    Decode   dec;
    
-   ret   =  open_input( "D:\\code\\input.mp4", &dec );
+   ret   =  open_input( "D:\\code\\input3.mp4", &dec );
    if( ret < 0 )
    {
       fprintf( stderr, "open input fail at line %d.\n", -ret );
@@ -53,6 +53,10 @@ void  convert_aac_to_opus()
          ret   =  audio_decode( &dec );
          if( ret == SUCCESS )
             write_audio_frame( dec, &enc, fifobuf );
+
+         ret  =  avcodec_receive_frame( dec.audio_ctx, dec.frame );
+         if( ret >= 0 )
+            printf("!!!");
       }
       // video
       else
@@ -172,9 +176,9 @@ int main(int argc, char *argv[])
    fp     =  fopen( "D:\\code\\output.pcm", "wb+" );
 
 
-   // convert_aac_to_opus();
+   convert_aac_to_opus();
 
-   merge_g711_to_opus();
+   //merge_g711_to_opus();
 
    //ffplay_test( argc, argv );
 

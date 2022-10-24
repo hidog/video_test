@@ -46,7 +46,7 @@ struct FifoBuffer_t
 {
    AVAudioFifo *fifo;
    uint8_t  **tmp_buffer;
-   int   input_nb_samples;
+   int   tmp_nb_samples;
    int   output_nb_samples;
 } typedef FifoBuffer;
 
@@ -65,7 +65,7 @@ int   close_encode( Encode *enc );
 
 // fifo
 int   init_fifo( Decode dec, Encode enc, FifoBuffer *fifobuf );
-int   push_audio_frame(  Encode enc, FifoBuffer fifobuf, AVFrame *dec_audio_frame );
+int   push_audio_frame( Decode dec, Encode enc, FifoBuffer fifobuf, AVFrame *dec_audio_frame );
 int   pop_audio_frame( Encode enc, FifoBuffer fifobuf );
 int   close_fifo( FifoBuffer *fifobuf );
 

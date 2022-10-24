@@ -26,10 +26,9 @@ int   audio_decode( Decode *dec )
    }
    else
    {
-       ret  =  avcodec_receive_frame( dec->audio_ctx, dec->frame );
+      ret  =  avcodec_receive_frame( dec->audio_ctx, dec->frame );   
 
-
-
+#if 0
        int         byte_count  =   av_samples_get_buffer_size( NULL, 2, dec->frame->nb_samples, AV_SAMPLE_FMT_S16, 0 );
 
        unsigned char   *pcm    =   malloc(byte_count);
@@ -42,7 +41,7 @@ int   audio_decode( Decode *dec )
 
       fwrite( pcm, 1, byte_count, fp );
       free(pcm);
-
+#endif
 
        if( ret >= 0 )
           return SUCCESS;
@@ -260,12 +259,7 @@ int open_output( char *filename,  Decode dec, Encode *enc )
 
 
 int   audio_encode( Encode *enc )
-{
-   /*int64_t delay = swr_get_delay( enc.swr_ctx, enc.audio_ctx->sample_rate);
-   int dst_nb_samples = av_rescale_rnd( delay + audio_frame->nb_samples,
-                                        enc.audio_ctx->sample_rate, enc.audio_ctx->sample_rate, AV_ROUND_UP);
-   assert(dst_nb_samples == audio_frame->nb_samples);*/
-   
+{   
    int ret;
    
    enc->frame->pts   =  av_rescale_q( enc->sample_count, (AVRational){1, enc->audio_ctx->sample_rate}, enc->audio_stream->time_base );
@@ -286,38 +280,60 @@ int   audio_encode( Encode *enc )
 
 int   init_fifo( Decode dec, Encode enc, FifoBuffer *fifobuf )
 {
-   int   input_nb_samples  =  512; //dec.audio_ctx->frame_size;
+   int   input_nb_samples  =  dec.audio_ctx->frame_size;
    int   output_nb_samples =  enc.audio_ctx->frame_size;
    int   frame_size        =  FFMAX( input_nb_samples, output_nb_samples );
    
-   AVAudioFifo *fifo =  av_audio_fifo_alloc( enc.audio_ctx->sample_fmt, enc.audio_ctx->ch_layout.nb_channels, 2*frame_size );   
+   // if needed, the fifo buffer will re-allocate.
+   AVAudioFifo *fifo =  av_audio_fifo_alloc( enc.audio_ctx->sample_fmt, enc.audio_ctx->ch_layout.nb_channels, frame_size << 1 );
    if( NULL == fifo )
       return ERROR;  
 
+   // if needed, the tmp_buffer will re-allocate.
    uint8_t  **tmp_buffer   =  calloc( enc.audio_ctx->ch_layout.nb_channels, sizeof(uint8_t*) );
-   //if( av_samples_alloc( tmp_buffer, NULL, enc.audio_ctx->ch_layout.nb_channels, input_nb_samples, enc.audio_ctx->sample_fmt, 0 ) < 0 )
-   if( av_samples_alloc( tmp_buffer, NULL, enc.audio_ctx->ch_layout.nb_channels, frame_size, enc.audio_ctx->sample_fmt, 0 ) < 0 )
+   if( av_samples_alloc( tmp_buffer, NULL, enc.audio_ctx->ch_layout.nb_channels, input_nb_samples, enc.audio_ctx->sample_fmt, 0 ) < 0 )
       return ERROR;   
    
    fifobuf->fifo  =  fifo;
    fifobuf->tmp_buffer  =  tmp_buffer;
-   fifobuf->input_nb_samples  =  512; //input_nb_samples;
+   fifobuf->tmp_nb_samples    =  input_nb_samples;
    fifobuf->output_nb_samples =  output_nb_samples;   
    
    return SUCCESS;
 }
 
 
-int   push_audio_frame( Encode enc, FifoBuffer fifobuf,  AVFrame *dec_audio_frame )
-{   
+int   push_audio_frame( Decode dec, Encode enc, FifoBuffer fifobuf,  AVFrame *dec_audio_frame )
+{  
+   int64_t  delay       =  swr_get_delay( enc.swr_ctx, enc.audio_ctx->sample_rate);
+   int      re_samples  =  av_rescale_rnd( delay + dec_audio_frame->nb_samples,
+                                           enc.audio_ctx->sample_rate, dec.audio_ctx->sample_rate, AV_ROUND_UP );
+   
+   // need re-allocate.
+   if( re_samples > fifobuf.tmp_nb_samples )
+   {
+      av_freep(&fifobuf.tmp_buffer[0]);
+      if( av_samples_alloc( fifobuf.tmp_buffer, NULL, enc.audio_ctx->ch_layout.nb_channels, re_samples, enc.audio_ctx->sample_fmt, 1 ) < 0 )
+         return ERROR;
+      fifobuf.tmp_nb_samples   =  re_samples;
+   }
+
    int   ret   =  swr_convert( enc.swr_ctx,
-                               fifobuf.tmp_buffer, fifobuf.input_nb_samples,
-                               (const uint8_t **)dec_audio_frame->data, fifobuf.input_nb_samples );
+                               fifobuf.tmp_buffer, fifobuf.tmp_nb_samples,
+                               (const uint8_t **)dec_audio_frame->data, dec_audio_frame->nb_samples );
    if( ret < 0 )
       return ERROR;
 
-   int   write_size  =  av_audio_fifo_write( fifobuf.fifo, (void **)fifobuf.tmp_buffer , fifobuf.input_nb_samples );
-   if( write_size < fifobuf.input_nb_samples )
+   if( av_audio_fifo_space(fifobuf.fifo) < ret )
+   {
+      // need realloc fifo.
+      int   current_fifo_size =  av_audio_fifo_size(fifobuf.fifo);
+      if( av_audio_fifo_realloc( fifobuf.fifo, current_fifo_size + ret ) < 0 )
+         return ERROR;
+   }
+
+   int   write_size  =  av_audio_fifo_write( fifobuf.fifo, (void **)fifobuf.tmp_buffer , ret );
+   if( write_size < ret )
       return ERROR;
 
    return SUCCESS;
@@ -337,7 +353,7 @@ int   write_audio_frame( Decode dec, Encode *enc, FifoBuffer fifobuf )
 {
    int   ret;
 
-   push_audio_frame( *enc, fifobuf, dec.frame );
+   push_audio_frame( dec, *enc, fifobuf, dec.frame );
    av_frame_unref(dec.frame);
    
    while( av_audio_fifo_size(fifobuf.fifo) >= fifobuf.output_nb_samples )
@@ -435,7 +451,7 @@ int   close_fifo( FifoBuffer *fifobuf )
    av_freep(&fifobuf->tmp_buffer[0]);
    free(fifobuf->tmp_buffer);
    fifobuf->tmp_buffer  =  NULL;
-   fifobuf->input_nb_samples  =  0;
+   fifobuf->tmp_nb_samples    =  0;
    fifobuf->output_nb_samples =  0;
 }
 
