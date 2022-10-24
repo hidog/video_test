@@ -53,10 +53,6 @@ void  convert_aac_to_opus()
          ret   =  audio_decode( &dec );
          if( ret == SUCCESS )
             write_audio_frame( dec, &enc, fifobuf );
-
-         ret  =  avcodec_receive_frame( dec.audio_ctx, dec.frame );
-         if( ret >= 0 )
-            printf("!!!");
       }
       // video
       else
