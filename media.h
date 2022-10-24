@@ -69,4 +69,9 @@ int   push_audio_frame(  Encode enc, FifoBuffer fifobuf, AVFrame *dec_audio_fram
 int   pop_audio_frame( Encode enc, FifoBuffer fifobuf );
 int   close_fifo( FifoBuffer *fifobuf );
 
+// g711
+int   open_video_input( char *filename, Decode *dec );
+int   open_g711_input( char *filename, Decode *dec, enum AVCodecID codeid, int channel, int sample_rate );
+int   open_merge_output( char *filename, Decode video_dec, Decode audio_dec, Encode *enc );
+
 #endif
