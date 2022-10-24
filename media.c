@@ -280,7 +280,7 @@ int   audio_encode( Encode *enc )
 
 int   init_fifo( Decode dec, Encode enc, FifoBuffer *fifobuf )
 {
-   int   input_nb_samples  =  dec.audio_ctx->frame_size;
+   int   input_nb_samples  =  dec.audio_ctx->frame_size > 0 ? dec.audio_ctx->frame_size : 512;
    int   output_nb_samples =  enc.audio_ctx->frame_size;
    int   frame_size        =  FFMAX( input_nb_samples, output_nb_samples );
    
@@ -394,6 +394,8 @@ int   flush_audio( Decode dec, Encode *enc, FifoBuffer fifobuf )
    frame->sample_rate   =  enc->audio_ctx->sample_rate;
    av_channel_layout_copy( &frame->ch_layout, &enc->audio_ctx->ch_layout );
    av_frame_get_buffer( frame, 0 );
+   if( av_frame_make_writable(frame) < 0 )
+      return ERROR;
 
    ret   =  av_audio_fifo_read( fifobuf.fifo, (void **)frame->data, sample );
    if( ret < sample )
@@ -412,7 +414,7 @@ int   flush_audio( Decode dec, Encode *enc, FifoBuffer fifobuf )
       enc->pkt->stream_index   =  enc->audio_stream->index;
       av_interleaved_write_frame( enc->fmt_ctx, enc->pkt );
    }
-   av_frame_free(frame);
+   av_frame_free(&frame);
 
    // flush audio encoder.
    ret   =  avcodec_send_frame( enc->audio_ctx, NULL );
@@ -526,16 +528,25 @@ int   open_g711_input( char *filename, Decode *dec, enum AVCodecID codeid, int c
    AVPacket          *pkt  =  NULL;   
    const AVCodec  *codec   =  NULL;    
    
-   AVInputFormat  *in_fmt  =  av_find_input_format("alaw");
-
+   char  tmp[100];
+   if( codeid == AV_CODEC_ID_PCM_MULAW )
+      sprintf( tmp, "mulaw" );
+   else if( codeid == AV_CODEC_ID_PCM_ALAW )
+      sprintf( tmp, "alaw" );
+   else
+      return ERROR;
+   AVInputFormat  *in_fmt  =  av_find_input_format(tmp);
 
    if( avformat_open_input( &fmt_ctx, filename, in_fmt, NULL ) < 0 )
       return ERROR;
 
    AVDictionary *format_opts = NULL, *codec_opts = NULL;
 
-   av_dict_set( &codec_opts, "ar", "48000", 0);
-   av_dict_set( &codec_opts, "ac", "2", 0);
+   sprintf( tmp, "%d", sample_rate );
+   av_dict_set( &codec_opts, "ar", tmp, 0);
+
+   sprintf( tmp, "%d", channel );
+   av_dict_set( &codec_opts, "ac", tmp, 0);
 
 
    /*AVDictionary **opts = setup_find_stream_info_opts(ic, codec_opts);

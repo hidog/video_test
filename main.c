@@ -18,7 +18,7 @@ void  convert_aac_to_opus()
    int      ret,  ret2;
    Decode   dec;
    
-   ret   =  open_input( "D:\\code\\input3.mp4", &dec );
+   ret   =  open_input( "D:\\code\\input.mp4", &dec );
    if( ret < 0 )
    {
       fprintf( stderr, "open input fail at line %d.\n", -ret );
@@ -91,7 +91,10 @@ void  merge_g711_to_opus()
       exit(0);
    }
 
-   ret   =  open_g711_input( "D:\\code\\input.g711a", &audio_dec, AV_CODEC_ID_PCM_ALAW, 2, 48000 );
+   //ret   =  open_g711_input( "D:\\code\\input.g711a", &audio_dec, AV_CODEC_ID_PCM_ALAW, 2, 48000 );
+   //ret   =  open_g711_input( "D:\\code\\input.g711a", &audio_dec, AV_CODEC_ID_PCM_ALAW, 1, 8000 );
+   //ret   =  open_g711_input( "D:\\code\\input.g711u", &audio_dec, AV_CODEC_ID_PCM_MULAW, 2, 48000 );
+   ret   =  open_g711_input( "D:\\code\\input.g711u", &audio_dec, AV_CODEC_ID_PCM_MULAW, 1, 8000 );
    if( ret < 0 )
    {
       fprintf( stderr, "open input fail at line %d.\n", -ret );
@@ -131,6 +134,10 @@ void  merge_g711_to_opus()
          av_packet_unref( audio_dec.pkt );
          if( ret == SUCCESS )
             write_audio_frame( audio_dec, &enc, fifobuf );
+
+         ret  =  avcodec_receive_frame( audio_dec.audio_ctx, audio_dec.frame );   
+         if( ret >= 0 )
+            printf("!!!");
       }
 
       // video
@@ -147,21 +154,16 @@ void  merge_g711_to_opus()
          break;
    }
 
-   av_write_trailer( enc.fmt_ctx );
-
-   
-#if 0
-
    // flush audio
-   flush_audio( dec, &enc, fifobuf );
-   close_decode(&dec);
+   flush_audio( audio_dec, &enc, fifobuf );
+   close_decode(&audio_dec);
 
    av_write_trailer( enc.fmt_ctx );
+
    close_encode(&enc);
    close_fifo(&fifobuf);
 
    printf("finish.\n");
-#endif
 }
 
 
@@ -172,9 +174,9 @@ int main(int argc, char *argv[])
    fp     =  fopen( "D:\\code\\output.pcm", "wb+" );
 
 
-   convert_aac_to_opus();
+   //convert_aac_to_opus();
 
-   //merge_g711_to_opus();
+   merge_g711_to_opus();
 
    //ffplay_test( argc, argv );
 
