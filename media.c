@@ -10,6 +10,10 @@
 
 #include <libavutil/audio_fifo.h>
 
+extern Encode *g_enc;
+
+extern FILE *fp; //     =   fopen( "D:\\code\\output.pcm", "wb+" );
+
 
 
 int   audio_decode( Decode *dec )
@@ -23,6 +27,23 @@ int   audio_decode( Decode *dec )
    else
    {
        ret  =  avcodec_receive_frame( dec->audio_ctx, dec->frame );
+
+
+
+       int         byte_count  =   av_samples_get_buffer_size( NULL, 2, dec->frame->nb_samples, AV_SAMPLE_FMT_S16, 0 );
+
+       unsigned char   *pcm    =   malloc(byte_count);
+       uint8_t     *data[2]    =   { 0 }; 
+       data[0]     =   pcm;
+
+           int ret     =   swr_convert( g_enc->swr_ctx,
+                                 data, dec->frame->nb_samples,                              //¿é¥X 
+                                 (const uint8_t**)dec->frame->data, dec->frame->nb_samples );
+
+      fwrite( pcm, 1, byte_count, fp );
+      free(pcm);
+
+
        if( ret >= 0 )
           return SUCCESS;
        if( ret == AVERROR_EOF || ret == AVERROR(EAGAIN) )
@@ -265,11 +286,11 @@ int   audio_encode( Encode *enc )
 
 int   init_fifo( Decode dec, Encode enc, FifoBuffer *fifobuf )
 {
-   int   input_nb_samples  =  dec.audio_ctx->frame_size;
+   int   input_nb_samples  =  512; //dec.audio_ctx->frame_size;
    int   output_nb_samples =  enc.audio_ctx->frame_size;
    int   frame_size        =  FFMAX( input_nb_samples, output_nb_samples );
    
-   AVAudioFifo *fifo =  av_audio_fifo_alloc( enc.audio_ctx->sample_fmt, enc.audio_ctx->ch_layout.nb_channels, frame_size );   
+   AVAudioFifo *fifo =  av_audio_fifo_alloc( enc.audio_ctx->sample_fmt, enc.audio_ctx->ch_layout.nb_channels, 2*frame_size );   
    if( NULL == fifo )
       return ERROR;  
 
@@ -280,7 +301,7 @@ int   init_fifo( Decode dec, Encode enc, FifoBuffer *fifobuf )
    
    fifobuf->fifo  =  fifo;
    fifobuf->tmp_buffer  =  tmp_buffer;
-   fifobuf->input_nb_samples  =  1024; //input_nb_samples;
+   fifobuf->input_nb_samples  =  512; //input_nb_samples;
    fifobuf->output_nb_samples =  output_nb_samples;   
    
    return SUCCESS;
@@ -491,10 +512,32 @@ int   open_g711_input( char *filename, Decode *dec, enum AVCodecID codeid, int c
    
    AVInputFormat  *in_fmt  =  av_find_input_format("alaw");
 
+
    if( avformat_open_input( &fmt_ctx, filename, in_fmt, NULL ) < 0 )
       return ERROR;
+
+   AVDictionary *format_opts = NULL, *codec_opts = NULL;
+
+   av_dict_set( &codec_opts, "ar", "48000", 0);
+   av_dict_set( &codec_opts, "ac", "2", 0);
+
+
+   /*AVDictionary **opts = setup_find_stream_info_opts(ic, codec_opts);
+   int orig_nb_streams = ic->nb_streams;   
+   err = avformat_find_stream_info(ic, opts);   
+   for (i = 0; i < orig_nb_streams; i++)
+       av_dict_free(&opts[i]);
+   av_freep(&opts);   
+   if (err < 0) {
+       av_log(NULL, AV_LOG_WARNING,
+              "%s: could not find codec parameters\n", is->filename);
+       ret = -1;
+       goto fail;
+   }*/
+
+
    
-   if( avformat_find_stream_info( fmt_ctx, NULL ) < 0 ) 
+   if( avformat_find_stream_info( fmt_ctx, &codec_opts ) < 0 ) 
       return ERROR;
    
    // audio
@@ -519,14 +562,14 @@ int   open_g711_input( char *filename, Decode *dec, enum AVCodecID codeid, int c
       if( avcodec_parameters_to_context( audio_ctx, audio_stream->codecpar ) < 0 )
          return ERROR;
 
-      audio_ctx->sample_fmt   =  AV_SAMPLE_FMT_S16;
-      audio_ctx->sample_rate  =  48000; //sample_rate;
-      av_channel_layout_copy( &audio_ctx->ch_layout, &(AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO );
+      //audio_ctx->sample_fmt   =  AV_SAMPLE_FMT_S16;
+      //audio_ctx->sample_rate  =  48000; //sample_rate;
+      //av_channel_layout_copy( &audio_ctx->ch_layout, &(AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO );
       
       if( avcodec_open2( audio_ctx, codec, NULL ) < 0 )
          return ERROR;
       
-      audio_ctx->pkt_timebase =  (AVRational){ 1, 48000 }; // fmt_ctx->streams[audio_index]->time_base;
+      audio_ctx->pkt_timebase =  fmt_ctx->streams[audio_index]->time_base;
    }
    
    // video

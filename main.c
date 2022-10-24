@@ -8,6 +8,11 @@
 #include <libavformat/avformat.h>
 
 
+Encode *g_enc = NULL;
+FILE *fp     =  NULL;// fopen( "D:\\code\\output.pcm", "wb+" );
+
+
+
 void  convert_aac_to_opus()
 {
    int      ret,  ret2;
@@ -100,6 +105,8 @@ void  merge_g711_to_opus()
       fprintf( stderr, "open output fail at line %d.\n", -ret );
       exit(0);
    }
+
+   g_enc = &enc;
    
    FifoBuffer  fifobuf;
    ret   =  init_fifo( audio_dec, enc, &fifobuf );
@@ -162,6 +169,9 @@ void  merge_g711_to_opus()
 
 int main(int argc, char *argv[])
 {
+   fp     =  fopen( "D:\\code\\output.pcm", "wb+" );
+
+
    // convert_aac_to_opus();
 
    merge_g711_to_opus();
