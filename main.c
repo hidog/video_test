@@ -1,19 +1,13 @@
 #include <stdio.h>
 #include "media.h"
 
-#include <libavutil/imgutils.h>
-#include <libavutil/samplefmt.h>
-#include <libavutil/timestamp.h>
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
 
-
-void  convert_aac_to_opus()
+void  convert_aac_to_opus( char *input_file, char *output_file )
 {
    int      ret,  ret2;
    Decode   dec;
    
-   ret   =  open_input( "/home/hidog/code/video_test/input.mp4", &dec );
+   ret   =  open_input( input_file, &dec );
    if( ret < 0 )
    {
       fprintf( stderr, "open input fail at line %d.\n", -ret );
@@ -21,7 +15,7 @@ void  convert_aac_to_opus()
    }
    
    Encode   enc;
-   ret   =  open_output( "/home/hidog/code/video_test/output.mp4", dec, &enc );
+   ret   =  open_output( output_file, dec, &enc );
    if( ret < 0 )
    {
       fprintf( stderr, "open output fail at line %d.\n", -ret );
@@ -74,22 +68,22 @@ void  convert_aac_to_opus()
 
 
 
-void  merge_g711_to_opus()
+void  merge_g711_to_opus( char *input_video, char *input_audio, char *output_file )
 {
    int      ret,  ret2;
    Decode   video_dec, audio_dec;
    
-   ret   =  open_video_input( "/home/hidog/code/video_test/input2.mp4", &video_dec );
+   ret   =  open_video_input( input_video, &video_dec );
    if( ret < 0 )
    {
       fprintf( stderr, "open input fail at line %d.\n", -ret );
       exit(0);
    }
 
-   //ret   =  open_g711_input( "D:\\code\\input.g711a", &audio_dec, AV_CODEC_ID_PCM_ALAW, 2, 48000 );
-   //ret   =  open_g711_input( "D:\\code\\input.g711a", &audio_dec, AV_CODEC_ID_PCM_ALAW, 1, 8000 );
-   //ret   =  open_g711_input( "D:\\code\\input.g711u", &audio_dec, AV_CODEC_ID_PCM_MULAW, 2, 48000 );
-   ret   =  open_g711_input( "/home/hidog/code/video_test/input.g711u", &audio_dec, AV_CODEC_ID_PCM_MULAW, 1, 8000 );
+   enum AVCodecID codeid   =  get_g711_codeid_from_filename(input_audio);
+
+   //ret   =  open_g711_input( input_audio, &audio_dec, codeid, 2, 48000 );
+   ret   =  open_g711_input( input_audio, &audio_dec, codeid, 1, 8000 );
    if( ret < 0 )
    {
       fprintf( stderr, "open input fail at line %d.\n", -ret );
@@ -160,9 +154,23 @@ void  merge_g711_to_opus()
 
 int main(int argc, char *argv[])
 {
-   convert_aac_to_opus();
-
-   //merge_g711_to_opus();
+   if( argc == 3 )
+   {
+      char  *input_file    =  argv[1];
+      char  *output_file   =  argv[2];
+      convert_aac_to_opus( input_file, output_file );
+   }
+   else if( argc == 4 )
+   {
+      char  *input_video   =  argv[1];
+      char  *input_audio   =  argv[2];
+      char  *output_file   =  argv[3];
+      merge_g711_to_opus( input_video, input_audio, output_file );
+   }
+   else
+   {
+      fprintf( stderr, "input parameter error.\n" );
+   }
 
    return 0;
 }

@@ -1,6 +1,7 @@
 #include "media.h"
 
 #include <assert.h>
+#include <string.h>
 
 #include <libavutil/imgutils.h>
 #include <libavutil/samplefmt.h>
@@ -705,4 +706,47 @@ int   open_merge_output( char *filename, Decode video_dec, Decode audio_dec, Enc
    enc->pkt =  pkt;
 
    return SUCCESS;
+}
+
+
+enum AVCodecID    get_g711_codeid_from_filename( char *filename )
+{
+   int   size  =  strlen(filename);
+   int   index, i;
+
+   for( index = size-1; index >= 0; index-- )
+   {
+      if( filename[index] == '.' )
+         break;
+   }
+
+   if( index == -1 )
+   {
+      fprintf( stderr, "incorrect audio filename.\n" );
+      return AV_CODEC_ID_PCM_ALAW;
+   }
+
+   if( size - index > 6 )
+   {
+      fprintf( stderr, "file extension error.\n" );
+      return AV_CODEC_ID_PCM_ALAW;
+   }
+
+   char  tmp[20];
+   for( i = index + 1; i < size; i++ )
+      tmp[i-index-1] =  filename[i];
+   tmp[i]   =  '\0';
+
+   printf( "file extension = %s\n", tmp );
+
+   if( 0 == strcmp( tmp, "g711a" ) )      
+      return   AV_CODEC_ID_PCM_ALAW;
+   else if( 0 == strcmp(tmp, "g711u" ) )
+      return   AV_CODEC_ID_PCM_MULAW;
+   else
+   {
+      fprintf( stderr, "file extension error.\n" );
+      return AV_CODEC_ID_PCM_ALAW;
+   }
+
 }

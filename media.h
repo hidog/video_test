@@ -9,7 +9,6 @@
 #include <libswresample/swresample.h>
 #include <libavutil/audio_fifo.h>
 
-
 #define  SUCCESS     1
 #define  ERROR       -(__LINE__)
 #define  NO_FRAME    0
@@ -73,5 +72,6 @@ int   close_fifo( FifoBuffer *fifobuf );
 int   open_video_input( char *filename, Decode *dec );
 int   open_g711_input( char *filename, Decode *dec, enum AVCodecID codeid, int channel, int sample_rate );
 int   open_merge_output( char *filename, Decode video_dec, Decode audio_dec, Encode *enc );
+enum AVCodecID    get_g711_codeid_from_filename( char *filename );
 
 #endif
