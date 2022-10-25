@@ -53,6 +53,6 @@ wget -O ffmpeg-5.1.2.tar.bz2 https://ffmpeg.org/releases/ffmpeg-5.1.2.tar.bz2 &&
     --enable-libvpx \
     --enable-libaom \
     --enable-nonfree && \
-  make && \
+  make -j4 && \
   make install && \
   hash -r
