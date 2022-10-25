@@ -91,7 +91,7 @@ void  merge_g711_to_opus( char *input_video, char *input_audio, char *output_fil
    }
 
    Encode   enc;
-   ret   =  open_merge_output( "/home/hidog/code/video_test/output.mp4", video_dec, audio_dec, &enc );
+   ret   =  open_merge_output( output_file, video_dec, audio_dec, &enc );
    if( ret < 0 )
    {
       fprintf( stderr, "open output fail at line %d.\n", -ret );
