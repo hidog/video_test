@@ -4,7 +4,7 @@
 
 void  convert_aac_to_opus( char *input_file, char *output_file )
 {
-   int      ret,  ret2;
+   int      ret;
    Decode   dec;
    
    ret   =  open_input( input_file, &dec );
@@ -70,7 +70,7 @@ void  convert_aac_to_opus( char *input_file, char *output_file )
 
 void  merge_g711_to_opus( char *input_video, char *input_audio, char *output_file )
 {
-   int      ret,  ret2;
+   int      ret;
    Decode   video_dec, audio_dec;
    
    ret   =  open_video_input( input_video, &video_dec );
@@ -154,7 +154,11 @@ void  merge_g711_to_opus( char *input_video, char *input_audio, char *output_fil
 
 int main(int argc, char *argv[])
 {
-   if( argc == 3 )
+   if( argc == 1 )
+   {
+      printf( "use ./video_test input.mp4 output.mp4 or ./video_test input.mp4 input.g711a output.mp4\n" );
+   }
+   else if( argc == 3 )
    {
       char  *input_file    =  argv[1];
       char  *output_file   =  argv[2];

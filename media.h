@@ -1,6 +1,8 @@
 #ifndef MEDIA_H
 #define MEDIA_H
 
+#include <stdint.h>
+
 #include <libavutil/imgutils.h>
 #include <libavutil/samplefmt.h>
 #include <libavutil/timestamp.h>
